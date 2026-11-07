@@ -10,3 +10,15 @@ GetWindowTextLength
 GetWindowText
 GetWindowThreadProcessId
 DwmGetWindowAttribute
+GetForegroundWindow
+MonitorFromWindow
+GetMonitorInfo
+GetDpiForMonitor
+SetWindowPos
+SetWindowLong
+RegisterHotKey
+UnregisterHotKey
+SendMessageTimeout
+GetClassLong
+WM_HOTKEY
+WM_GETICON
