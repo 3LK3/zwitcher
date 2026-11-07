@@ -1,5 +1,5 @@
-# Prepares a release for a tag: checks that the tag matches the version, publishes the zip
-# and writes the release notes from CHANGELOG.md. The workflow then uploads both.
+# Prepares a release for a tag: checks that the tag matches the version, packs the Velopack
+# release and writes the release notes from CHANGELOG.md. The workflow then uploads both.
 #   ./build/release.ps1 -Tag v1.0.0
 param(
     [Parameter(Mandatory)] [string] $Tag
@@ -29,6 +29,17 @@ New-Item -ItemType Directory -Force $artifacts | Out-Null
 $notesFile = Join-Path $artifacts 'release-notes.md'
 Set-Content -Path $notesFile -Value $notes -Encoding utf8NoBOM
 
-$zip = & (Join-Path $PSScriptRoot 'publish.ps1') -Runtime win-x64 | Select-Object -Last 1
+$releaseDir = Join-Path $artifacts 'release/win-x64'
+if (Test-Path $releaseDir) { Remove-Item $releaseDir -Recurse -Force }
 
-Write-Host "Release $Tag ready: $zip, notes in $notesFile"
+# Fetch the previous release so vpk pack can build a delta package. The first release has
+# nothing to download, and a missing delta only means users get the full package.
+if ($env:GH_TOKEN) {
+    dotnet vpk download github --repoUrl https://github.com/3LK3/zwitcher --token $env:GH_TOKEN -o $releaseDir
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'No previous release to build a delta from.' }
+}
+
+& (Join-Path $PSScriptRoot 'publish.ps1') -Runtime win-x64
+if ($LASTEXITCODE -ne 0) { throw 'publish.ps1 failed.' }
+
+Write-Host "Release $Tag ready: $releaseDir, notes in $notesFile"

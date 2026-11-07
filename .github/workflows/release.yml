@@ -13,7 +13,7 @@ jobs:
   release:
     runs-on: windows-latest
     permissions:
-      # Creating a release and uploading the zip.
+      # Creating a release and uploading the Velopack files.
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -32,9 +32,13 @@ jobs:
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}
+          # Lets release.ps1 download the previous release for delta packages.
+          GH_TOKEN: ${{ github.token }}
 
+      # Velopack's GithubSource needs everything vpk pack produced: the full (and delta)
+      # .nupkg, the releases.win.json / RELEASES feed files and the Setup.exe / Portable.zip.
       # gh comes with the runner, so no third-party action is needed.
-      - run: gh release create $env:TAG (Get-ChildItem artifacts/*.zip).FullName --title "Zwitcher $env:TAG" --notes-file artifacts/release-notes.md
+      - run: gh release create $env:TAG (Get-ChildItem artifacts/release/win-x64 -File).FullName --title "Zwitcher $env:TAG" --notes-file artifacts/release-notes.md
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}

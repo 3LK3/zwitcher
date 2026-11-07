@@ -4,7 +4,7 @@ All notable changes to Zwitcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [1.0.0] - 2026-11-07
+## [1.0.0] - 2026-11-08
 
 First release.
 
@@ -26,6 +26,10 @@ First release.
 - Settings in `%AppData%\Zwitcher\settings.json`; a damaged file falls back to defaults.
 - Log file in `%LocalAppData%\Zwitcher\logs`, rolled over at 1 MB. Crashes are logged, and
   the keyboard hook is removed so that the native Alt+Tab returns.
-- Self-contained single-file `win-x64` build; no .NET install needed.
+- Installer (`Zwitcher-win-Setup.exe`, per user, no admin rights needed) built with
+  [Velopack](https://velopack.io).
+- Update check on start. When a newer version exists, Zwitcher shows a tray notification and
+  an *Update to x.y.z* item in the tray menu. Nothing is installed until you click it; the app
+  then downloads the update and restarts.
 
 [1.0.0]: https://github.com/3LK3/zwitcher/releases/tag/v1.0.0

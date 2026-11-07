@@ -264,6 +264,14 @@ take the app down.
 - `Debug.WriteLine` lands in the same file in Debug builds and is compiled out of Release.
   Timing lines on the show path use it, so Release does no I/O there.
 
+### Updates (App/Updates)
+`UpdateService` wraps Velopack's `UpdateManager` with a `GithubSource`. At startup (Release
+builds only) `App` runs one fire-and-forget check, so a slow network never delays the hook.
+It does nothing when the app wasn't installed by Velopack. If an update exists, `TrayIcon`
+shows a balloon and an *Update to x* menu item. Only a click downloads the update and calls
+`ApplyUpdatesAndRestart`; nothing is installed unasked. Not part of the controller or the
+hook.
+
 ## State machine
 
 ```
@@ -373,7 +381,9 @@ process. Unobserved task exceptions are only logged.
 
 `build/publish.ps1` publishes a self-contained, single-file `win-x64` `Zwitcher.exe`
 (WPF's native DLLs included through `IncludeNativeLibrariesForSelfExtract`, no trimming,
-which WPF doesn't support) and zips it to `artifacts/`. The version lives only in
+which WPF doesn't support) and packs it with `vpk pack` into `artifacts/release/win-x64` (full and delta `.nupkg`,
+`releases.win.json`, `RELEASES`, `assets.win.json`, `Setup.exe`, `Portable.zip`). The version lives only in
 `Directory.Build.props`. On a `v*` tag, the release workflow runs `build/release.ps1`, which
-fails unless the tag is `v<Version>`, and creates the GitHub release with the zip and that
-version's CHANGELOG section.
+fails unless the tag is `v<Version>`, downloads the previous release for delta packages, and
+creates the GitHub release with all those files and that version's CHANGELOG section. The
+in-app update check reads these files through `GithubSource`.

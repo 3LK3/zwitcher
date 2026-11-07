@@ -30,9 +30,22 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ApplicationDefinition Remove="App.xaml" />
+        <Page Include="App.xaml" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <StartupObject>Zwitcher.App.App</StartupObject>
+    </PropertyGroup>
+
+    <ItemGroup>
         <EmbeddedResource
             Include="Assets\zwitcher.ico"
             LogicalName="Zwitcher.App.Assets.zwitcher.ico"
         />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Velopack" Version="1.2.161" />
     </ItemGroup>
 </Project>

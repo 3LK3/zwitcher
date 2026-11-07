@@ -3,12 +3,16 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using Velopack;
 using Zwitcher.Core;
 using Zwitcher.Core.Activation;
 using Zwitcher.Core.Diagnostics;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Interop;
 using Zwitcher.Core.Windows;
+#if !DEBUG
+using Zwitcher.App.Updates;
+#endif
 
 namespace Zwitcher.App;
 
@@ -39,6 +43,7 @@ public sealed partial class App : Application
         }
 
         StartLog();
+
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += (_, args) =>
             Trace.TraceWarning($"Unobserved task exception: {args.Exception}");
@@ -70,6 +75,10 @@ public sealed partial class App : Application
         tray.AboutRequested += (_, _) => ShowAbout();
         tray.ExitRequested += (_, _) => Shutdown();
         _tray = tray;
+
+#if !DEBUG
+        _ = CheckForUpdateAsync(tray);
+#endif
 
         var poster = new CommandPoster(_messageWindow.Handle);
 
@@ -112,6 +121,45 @@ public sealed partial class App : Application
         StartCrashTest(e.Args);
 #endif
     }
+
+#if !DEBUG
+    // Fire-and-forget on purpose: a slow network must never delay the hook going live.
+    // Resumes on the UI thread (WPF sync context), so touching the tray is safe.
+    private async Task CheckForUpdateAsync(TrayIcon tray)
+    {
+        try
+        {
+            var service = new UpdateService();
+            var update = await service.CheckAsync();
+            Trace.TraceInformation(
+                $"Update check: {update?.TargetFullRelease.Version.ToString() ?? "none"}"
+            );
+            if (update is null)
+            {
+                return;
+            }
+
+            tray.UpdateRequested += async (_, _) =>
+            {
+                tray.SetUpdateBusy("Downloading update...");
+                try
+                {
+                    await service.DownloadAndApplyAsync(update);
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError($"Update failed: {ex}");
+                    tray.SetUpdateRetry("Update failed, retry");
+                }
+            };
+            tray.SetUpdateAvailable(update.TargetFullRelease.Version.ToString());
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Update check failed: {ex}");
+        }
+    }
+#endif
 
     private void ShowSettings(SettingsService settings, StartupRegistration startup)
     {
@@ -244,5 +292,15 @@ public sealed partial class App : Application
             ?? "unknown";
         var plus = version.IndexOf('+');
         return plus >= 0 && version.Length > plus + 8 ? version[..(plus + 8)] : version;
+    }
+
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        VelopackApp.Build().Run();
+
+        App app = new();
+        app.InitializeComponent();
+        app.Run();
     }
 }

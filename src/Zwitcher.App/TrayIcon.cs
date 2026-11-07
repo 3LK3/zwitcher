@@ -12,6 +12,7 @@ public sealed class TrayIcon : IDisposable
     private readonly ContextMenuStrip _menu;
     private readonly Icon _image;
     private readonly ToolStripMenuItem _enabled;
+    private readonly ToolStripMenuItem _update;
 
     public TrayIcon()
     {
@@ -28,6 +29,9 @@ public sealed class TrayIcon : IDisposable
             (_, _) => DumpWindowsRequested?.Invoke(this, EventArgs.Empty)
         );
 #endif
+        _update = new ToolStripMenuItem("Update") { Visible = false };
+        _update.Click += (_, _) => UpdateRequested?.Invoke(this, EventArgs.Empty);
+        _menu.Items.Add(_update);
         _enabled = new ToolStripMenuItem("Enabled") { Checked = true, CheckOnClick = true };
         _enabled.CheckedChanged += (_, _) => EnabledChanged?.Invoke(this, _enabled.Checked);
         _menu.Items.Add(_enabled);
@@ -47,6 +51,13 @@ public sealed class TrayIcon : IDisposable
             ContextMenuStrip = _menu,
             Visible = true,
         };
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            if (_update.Visible && _update.Enabled)
+            {
+                UpdateRequested?.Invoke(this, EventArgs.Empty);
+            }
+        };
     }
 
 #if DEBUG
@@ -63,7 +74,35 @@ public sealed class TrayIcon : IDisposable
 
     public event EventHandler? ExitRequested;
 
+    public event EventHandler? UpdateRequested;
+
     public void SetEnabled(bool enabled) => _enabled.Checked = enabled;
+
+    /// <summary>Shows the update menu item and a one-time balloon the user can click.</summary>
+    public void SetUpdateAvailable(string version)
+    {
+        _update.Text = $"Update to {version}";
+        _update.Enabled = true;
+        _update.Visible = true;
+        _icon.ShowBalloonTip(
+            10_000,
+            "Zwitcher update available",
+            $"Version {version} is ready. Click to install.",
+            ToolTipIcon.Info
+        );
+    }
+
+    public void SetUpdateBusy(string text)
+    {
+        _update.Text = text;
+        _update.Enabled = false;
+    }
+
+    public void SetUpdateRetry(string text)
+    {
+        _update.Text = text;
+        _update.Enabled = true;
+    }
 
     public void Dispose()
     {

@@ -233,6 +233,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M9 – v1.0 release
 
+✓ DONE
+
 **Goal:** Installable, diagnosable, documented.
 
 **Scope**
@@ -251,18 +253,9 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ---
 
-## After 1.0 (ready for more)
+## After 1.0
 
 The architecture already leaves room for these. Most are view or tracker changes;
 the controller and the hook stay untouched.
 
-- **Live thumbnails** (DWM). View-only, behind a setting (see ARCHITECTURE.md).
-- **Grouping by app** and an app-level switch (Alt+`).
-- **Type to filter / search** while the switcher is open (new hook-side rule:
-  swallow letters while active, new `Filter(char)` command).
-- **Filters:** current virtual desktop only, current monitor only.
-- **Actions on the selected window:** close (e.g. `Q`), minimize, move to monitor.
-- **Theming:** light/dark following the system, accent color, Mica-like backdrop.
-- **Elevated window support** via `uiAccess=true` (signed build, installed under
-  Program Files).
-- **Installer** (MSIX or winget manifest).
+- ~~**Installer** and **auto-update** via Velopack~~ (v1.0.1)
