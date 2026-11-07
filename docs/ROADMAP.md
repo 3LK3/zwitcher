@@ -145,6 +145,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
   never swallowing Alt key-up).
 - The hook sets `switcherActive = true` when posting `Activate`. The controller
   clears it.
+- Choose how to activate windows from the hook: it doesn't grant foreground rights (see `IWindowActivator` in ARCHITECTURE.md). Re-test with physical keys.
 - Remove the debug hotkey.
 - Tray toggle *Enabled*. When disabled, the hook passes everything through, so the
   native Alt+Tab works.
