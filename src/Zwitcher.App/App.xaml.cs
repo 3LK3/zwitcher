@@ -17,9 +17,10 @@ public sealed partial class App : Application
     private const string InstanceMutexName = @"Local\Zwitcher-7f3c1a52-8e4b-4d06-9b1e-2c5d6a90f3e7";
 
     private SingleInstanceGuard? _instanceGuard;
-    private MainWindow? _overlay;
+    private OverlayWindow? _overlay;
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
+    private DebugHotkeys? _hotkeys;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -40,13 +41,13 @@ public sealed partial class App : Application
 
         // Pre-create the overlay: build the HWND now but never call Show(), so later
         // show/hide is fast. EnsureHandle creates the native window without displaying it.
-        _overlay = new MainWindow();
+        _overlay = new OverlayWindow();
         new WindowInteropHelper(_overlay).EnsureHandle();
 
         var state = new SwitcherState();
         var controller = new SwitcherController(
             tracker,
-            new LoggingOverlayView(),
+            _overlay,
             new LoggingWindowActivator(),
             state
         );
@@ -56,15 +57,20 @@ public sealed partial class App : Application
         _tray.AboutRequested += (_, _) => ShowAbout();
         _tray.ExitRequested += (_, _) => Shutdown();
 
-#if DEBUG
         var poster = new CommandPoster(_messageWindow.Handle);
+
+#if DEBUG
         _tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, state);
         _tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker);
 #endif
+
+        // Last, like the keyboard hook that will replace it: everything else must be ready.
+        _hotkeys = new DebugHotkeys(_messageWindow, poster, state);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _hotkeys?.Dispose();
         _tray?.Dispose();
         _messageWindow?.Dispose();
         _instanceGuard?.Dispose();

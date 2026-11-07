@@ -26,6 +26,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Assets\zwitcher.ico" LogicalName="Zwitcher.App.Assets.zwitcher.ico" />
+        <EmbeddedResource
+            Include="Assets\zwitcher.ico"
+            LogicalName="Zwitcher.App.Assets.zwitcher.ico"
+        />
     </ItemGroup>
 </Project>
