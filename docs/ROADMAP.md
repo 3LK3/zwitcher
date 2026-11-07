@@ -68,6 +68,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M2 – Window enumeration and filtering
 
+✓ DONE
+
 **Goal:** A correct list of the windows the native Alt+Tab would show.
 
 **Scope**
