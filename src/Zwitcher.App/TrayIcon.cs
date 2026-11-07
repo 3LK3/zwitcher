@@ -3,7 +3,7 @@ using System.Windows.Forms;
 
 namespace Zwitcher.App;
 
-/// <summary>Notification-area icon with an Exit menu. WPF has no tray API, so this wraps NotifyIcon.</summary>
+/// <summary>Notification-area icon with About and Exit items. WPF has no tray API, so this wraps NotifyIcon.</summary>
 public sealed class TrayIcon : IDisposable
 {
     private const string IconResourceName = "Zwitcher.App.Assets.zwitcher.ico";
@@ -15,6 +15,7 @@ public sealed class TrayIcon : IDisposable
     public TrayIcon()
     {
         _menu = new ContextMenuStrip();
+        _menu.Items.Add("About", null, (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty));
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
         _image = LoadIcon();
@@ -26,6 +27,8 @@ public sealed class TrayIcon : IDisposable
             Visible = true,
         };
     }
+
+    public event EventHandler? AboutRequested;
 
     public event EventHandler? ExitRequested;
 

@@ -31,6 +31,7 @@ public sealed partial class App : Application
         new WindowInteropHelper(_overlay).EnsureHandle();
 
         _tray = new TrayIcon();
+        _tray.AboutRequested += (_, _) => ShowAbout();
         _tray.ExitRequested += (_, _) => Shutdown();
     }
 
@@ -39,5 +40,11 @@ public sealed partial class App : Application
         _tray?.Dispose();
         _instanceGuard?.Dispose();
         base.OnExit(e);
+    }
+
+    private static void ShowAbout()
+    {
+        var version = typeof(App).Assembly.GetName().Version?.ToString(3);
+        MessageBox.Show($"Zwitcher {version}", "About Zwitcher");
     }
 }
