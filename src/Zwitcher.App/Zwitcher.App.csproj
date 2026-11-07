@@ -4,6 +4,7 @@
         <UseWPF>true</UseWPF>
         <!-- WinForms is referenced only for NotifyIcon (WPF has no tray icon). -->
         <UseWindowsForms>true</UseWindowsForms>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
     </PropertyGroup>
 
     <ItemGroup>
