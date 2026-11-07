@@ -93,7 +93,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 **Scope**
 - `OverlayWindow` implementing `IOverlayView`: borderless, topmost, no taskbar
-  entry, pre-created hidden at startup.
+  entry, absent from Alt+Tab (set `WS_EX_TOOLWINDOW`; `ShowInTaskbar=False` may not be enough), pre-created hidden at startup.
 - Compact list layout: app icon and title, with a clear selection highlight.
 - Icon loading (`WM_GETICON` / class icon fallback), cached per HWND/process,
   never loaded on the show path if a cached icon exists.

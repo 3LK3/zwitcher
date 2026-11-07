@@ -114,6 +114,22 @@ LINQ, no locks. The delegate is stored in a field so the GC can't collect it.
 - Eligibility filtering lives in a single `WindowFilter` class that reads window
   properties through `IWindowQuery`, so tests can use fake data.
 
+`WindowFilter` follows [how Alt+Tab picks windows](https://devblogs.microsoft.com/oldnewthing/20071008-00/?p=24863).
+Microsoft calls that an implementation detail, so native Alt+Tab is the reference. A
+window is eligible if all of these hold:
+
+1. It's visible and isn't a tool window. `WS_EX_TOOLWINDOW` counts as invisible.
+2. It isn't cloaked (`DWMWA_CLOAKED`). This removes hidden UWP frames and windows on
+   other virtual desktops, which `IsWindowVisible` still reports.
+3. It isn't the shell's desktop window (`GetShellWindow`).
+4. Its title isn't empty.
+5. It represents its owner group. `WS_EX_APPWINDOW` windows count as having no owner.
+   All others: start at the root owner and follow `GetLastActivePopup` to the first
+   visible window, which must be this window.
+
+For a hidden owner with a visible owned window, the article's text includes the owned
+window but its pseudo-code doesn't. We follow the text.
+
 ```csharp
 sealed record WindowInfo(nint Handle, string Title, int ProcessId, string? AppId);
 ```
