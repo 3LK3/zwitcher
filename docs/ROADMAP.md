@@ -44,6 +44,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M1 – Message window and controller skeleton
 
+✓ DONE
+
 **Goal:** The central event path exists and is tested, before any real input.
 
 **Scope**
