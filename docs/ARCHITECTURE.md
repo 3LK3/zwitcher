@@ -1,6 +1,6 @@
 # Architecture
 
-Switcher replaces the Windows Alt+Tab switcher. This document describes how the
+Zwitcher replaces the Windows Alt+Tab switcher. This document describes how the
 pieces fit together, which thread owns what, and how events flow.
 
 ## Overview
@@ -204,12 +204,12 @@ hooks, then windows.
 
 | Component | Project / folder |
 |---|---|
-| `KeyboardHook`, `SwitcherCommand` | `Switcher.Core/Input` |
-| `WindowTracker`, `WindowFilter`, `IWindowQuery`, `WindowInfo` | `Switcher.Core/Windows` |
-| `WindowActivator` | `Switcher.Core/Activation` |
-| `SwitcherController`, `IOverlayView`, `ISwitcherState` | `Switcher.Core` |
-| CsWin32 wrappers, `NativeMethods.txt` | `Switcher.Core/Interop` |
-| `OverlayWindow` (implements `IOverlayView`), message window, tray | `Switcher.App` |
+| `KeyboardHook`, `SwitcherCommand` | `Zwitcher.Core/Input` |
+| `WindowTracker`, `WindowFilter`, `IWindowQuery`, `WindowInfo` | `Zwitcher.Core/Windows` |
+| `WindowActivator` | `Zwitcher.Core/Activation` |
+| `SwitcherController`, `IOverlayView`, `ISwitcherState`, `SingleInstanceGuard` | `Zwitcher.Core` |
+| CsWin32 wrappers, `NativeMethods.txt` | `Zwitcher.Core/Interop` |
+| `OverlayWindow` (implements `IOverlayView`), message window, tray | `Zwitcher.App` |
 
 ## Testing
 

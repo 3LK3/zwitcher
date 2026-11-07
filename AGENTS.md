@@ -2,14 +2,14 @@
 
 Guidance for AI coding agents working in this repository.
 
-**Read `ARCHITECTURE.md` before changing structure, threading or event flow.**
+**Read `docs/ARCHITECTURE.md` before changing structure, threading or event flow.**
 It is the source of truth for components, the state machine and the message flow.
 If a change requires deviating from it, propose the change first and update
 ARCHITECTURE.md in the same change.
 
 ## Project
 
-Switcher is a Windows replacement for the built-in Alt+Tab switcher. It intercepts
+Zwitcher is a Windows replacement for the built-in Alt+Tab switcher. It intercepts
 Alt+Tab with a low-level keyboard hook and shows a custom, compact overlay listing
 open windows in most-recently-used order, with optional live DWM thumbnails.
 
@@ -26,20 +26,21 @@ Windows only. Target: Windows 10 22H2+ and Windows 11.
 ## Layout
 
 ```
-src/Switcher.App/          WPF exe: OverlayWindow (IOverlayView), message window,
+src/Zwitcher.App/          WPF exe: OverlayWindow (IOverlayView), message window,
                            tray icon, startup/shutdown, settings UI
-src/Switcher.Core/         No UI. All logic and Win32 interop.
-  SwitcherController.cs    Central state machine (see ARCHITECTURE.md)
+src/Zwitcher.Core/         No UI. All logic and Win32 interop.
+  SwitcherController.cs    Central state machine (see docs/ARCHITECTURE.md)
+  SingleInstanceGuard.cs   Named mutex that detects a second launch
   Interop/                 NativeMethods.txt, thin safe wrappers around CsWin32 output
   Input/                   KeyboardHook (dedicated thread), SwitcherCommand
   Windows/                 WindowTracker, WindowFilter, IWindowQuery, WindowInfo
   Activation/              WindowActivator
-tests/Switcher.Core.Tests/ Unit tests for Core
+tests/Zwitcher.Core.Tests/ Unit tests for Core
 ```
 
 Dependency rules:
-- `Switcher.Core` must never reference WPF or any UI assembly.
-- `Switcher.App` depends on Core. Core talks to the UI only through `IOverlayView`.
+- `Zwitcher.Core` must never reference WPF or any UI assembly.
+- `Zwitcher.App` depends on Core. Core talks to the UI only through `IOverlayView`.
 - Win32 types (HWND, structs) stay inside `Core`. Expose small records like
   `WindowInfo` (handles as `nint`) to everything else.
 
@@ -49,7 +50,7 @@ Dependency rules:
 dotnet tool restore                 # once, restores CSharpier (local tool)
 dotnet build
 dotnet test
-dotnet run --project src/Switcher.App
+dotnet run --project src/Zwitcher.App
 dotnet csharpier format .           # format all files
 dotnet csharpier check .            # verify formatting (CI)
 ```
