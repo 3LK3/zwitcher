@@ -5,4 +5,9 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
+
+    <ItemGroup>
+        <!-- CsWin32 only auto-includes NativeMethods.txt from the project root. -->
+        <AdditionalFiles Include="Interop\NativeMethods.txt" />
+    </ItemGroup>
 </Project>
