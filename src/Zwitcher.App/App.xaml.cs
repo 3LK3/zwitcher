@@ -6,6 +6,7 @@ using Zwitcher.App.Debugging;
 using Zwitcher.Core;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Interop;
+using Zwitcher.Core.Windows;
 
 namespace Zwitcher.App;
 
@@ -35,7 +36,7 @@ public sealed partial class App : Application
         StartDebugLog();
 #endif
 
-        var tracker = new StubWindowTracker();
+        var tracker = new WindowTracker(new Win32WindowQuery());
 
         // Pre-create the overlay: build the HWND now but never call Show(), so later
         // show/hide is fast. EnsureHandle creates the native window without displaying it.
@@ -58,6 +59,7 @@ public sealed partial class App : Application
 #if DEBUG
         var poster = new CommandPoster(_messageWindow.Handle);
         _tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, state);
+        _tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker);
 #endif
     }
 
@@ -87,6 +89,16 @@ public sealed partial class App : Application
         poster.Post(SwitcherCommand.Next);
         poster.Post(SwitcherCommand.Next);
         poster.Post(SwitcherCommand.Confirm);
+    }
+
+    private static void DumpWindows(IWindowTracker tracker)
+    {
+        var windows = tracker.Snapshot();
+        Debug.WriteLine($"--- {windows.Count} windows");
+        foreach (var window in windows)
+        {
+            Debug.WriteLine($"{window.Handle} pid={window.ProcessId} \"{window.Title}\"");
+        }
     }
 #endif
 

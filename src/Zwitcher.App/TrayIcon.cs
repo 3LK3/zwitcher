@@ -21,6 +21,11 @@ public sealed class TrayIcon : IDisposable
             null,
             (_, _) => PostTestCommandsRequested?.Invoke(this, EventArgs.Empty)
         );
+        _menu.Items.Add(
+            "Dump windows",
+            null,
+            (_, _) => DumpWindowsRequested?.Invoke(this, EventArgs.Empty)
+        );
 #endif
         _menu.Items.Add("About", null, (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty));
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
@@ -37,6 +42,8 @@ public sealed class TrayIcon : IDisposable
 
 #if DEBUG
     public event EventHandler? PostTestCommandsRequested;
+
+    public event EventHandler? DumpWindowsRequested;
 #endif
 
     public event EventHandler? AboutRequested;
