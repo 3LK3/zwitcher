@@ -60,11 +60,12 @@ callback.
 ```csharp
 enum SwitcherCommand
 {
-    Activate,   // Alt+Tab pressed while idle
-    Next,       // Tab while active
-    Prev,       // Shift+Tab while active
-    Confirm,    // Alt released while active
-    Cancel,     // Esc while active
+    Activate,       // Alt+Tab pressed while idle
+    ActivatePrev,   // Alt+Shift+Tab pressed while idle
+    Next,           // Tab while active
+    Prev,           // Shift+Tab while active
+    Confirm,        // Alt released while active
+    Cancel,         // Esc while active
 }
 ```
 
@@ -77,13 +78,14 @@ for the UI thread. So it keeps a minimal state of its own:
 
 - `altDown`: tracked from `VK_LMENU`/`VK_RMENU` down/up events (hook thread only).
 - `switcherActive`: a `volatile bool`. The hook sets it to `true` when it posts
-  `Activate`, and the controller sets it to `false` when it returns to Idle.
+  `Activate` or `ActivatePrev`, and the controller sets it to `false` when it returns
+  to Idle.
 
 Decision table inside the callback:
 
 | Key event | Condition | Action |
 |---|---|---|
-| Tab down | `altDown && !switcherActive` | post `Activate` (or `Prev` if Shift held), swallow |
+| Tab down | `altDown && !switcherActive` | post `Activate` (or `ActivatePrev` if Shift held), swallow |
 | Tab down | `switcherActive` | post `Next` / `Prev`, swallow |
 | Esc down | `switcherActive` | post `Cancel`, swallow |
 | Alt up | `switcherActive` | post `Confirm`, **pass through** |
@@ -153,14 +155,17 @@ the foreground window, Windows permits the call.
 | State | Event | Action | Next |
 |---|---|---|---|
 | Idle | `Activate` | snapshot windows; select index 1 (or 0 if only one); `view.Show` | Active |
+| Idle | `ActivatePrev` | snapshot windows; select the last index; `view.Show` | Active |
 | Idle | other | ignore | Idle |
+| Active | `Activate` / `ActivatePrev` | ignore (the hook never posts these while active) | Active |
 | Active | `Next` / `Prev` | move selection with wrap-around; `view.UpdateSelection` | Active |
 | Active | `WindowsChanged` | re-snapshot; keep the same window selected if it still exists; `view.UpdateWindows` | Active |
 | Active | `Confirm` / `ItemClicked(i)` | `view.Hide`; activate selected; clear `switcherActive` | Idle |
 | Active | `Cancel` | `view.Hide`; clear `switcherActive` | Idle |
 
 Edge cases:
-- Empty window list on `Activate`: don't show anything. Clear the flag and return to Idle.
+- Empty window list on `Activate` / `ActivatePrev`: don't show anything. Clear the flag
+  and return to Idle.
 - Selected window closes while active: select the nearest remaining index.
 - Activation fails (window gone): ignore and stay Idle.
 
@@ -192,9 +197,9 @@ User            Hook thread            UI thread
 
 Startup (App):
 1. Single-instance check (named mutex).
-2. Create the message-only window and the `SwitcherController` on the UI thread.
-3. Create the `WindowTracker` and do the initial enumeration.
-4. Pre-create the overlay window hidden (create the HWND, so first show is instant).
+2. Create the `WindowTracker` and do the initial enumeration.
+3. Pre-create the overlay window hidden (create the HWND, so first show is instant).
+4. Create the `SwitcherController` and the message-only window on the UI thread.
 5. Start the `KeyboardHook` thread last.
 
 Shutdown is the reverse: hook first (so no new commands arrive), then WinEvent
