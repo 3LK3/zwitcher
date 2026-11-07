@@ -1,6 +1,7 @@
 <Solution>
     <Folder Name="/docs/">
         <File Path="docs/ARCHITECTURE.md" />
+        <File Path="docs/ROADMAP.md" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Zwitcher.App/Zwitcher.App.csproj" />
