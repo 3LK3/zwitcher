@@ -18,11 +18,15 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     private const double OverlayWidth = 480;
     private const double DefaultDpi = 96;
 
+    // Of the work area. Longer lists scroll.
+    private const double MaxHeightShare = 0.8;
+
     private readonly IconCache _icons = new();
 
     private OverlayItem[] _rows = [];
     private int _selected;
     private MonitorArea? _monitor;
+    private bool _warmingUp;
 
     public OverlayWindow()
     {
@@ -31,16 +35,42 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 
     public event Action<int>? ItemClicked;
 
+    /// <summary>
+    /// Shows the overlay once, invisibly, so that the first real open doesn't pay for JIT and
+    /// the first render. Hidden again as soon as the dispatcher is idle.
+    /// </summary>
+    public void WarmUp()
+    {
+        Opacity = 0;
+        Show([new WindowInfo(0, "Warm up", 0, null)], 0);
+        _warmingUp = true;
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.ContextIdle,
+            () =>
+            {
+                if (_warmingUp)
+                {
+                    Hide();
+                    EndWarmUp();
+                }
+            }
+        );
+    }
+
     public void Show(IReadOnlyList<WindowInfo> windows, int selectedIndex)
     {
 #if DEBUG
         var stopwatch = Stopwatch.StartNew();
 #endif
+        EndWarmUp();
         _icons.KeepOnly(windows);
         SetRows(windows, selectedIndex);
         MoveToPrimaryMonitor();
         FitToRows();
+        Scroller.ScrollToTop();
         Show();
+        UpdateLayout();
+        BringSelectionIntoView();
         LoadMissingIcons();
 #if DEBUG
         // Loaded runs right after Render, so this includes layout and the first frame.
@@ -56,6 +86,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         _rows[_selected].IsSelected = false;
         _rows[selectedIndex].IsSelected = true;
         _selected = selectedIndex;
+        BringSelectionIntoView();
     }
 
     public void UpdateWindows(IReadOnlyList<WindowInfo> windows, int selectedIndex)
@@ -63,6 +94,8 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         Debug.WriteLine($"Overlay updated: {windows.Count} rows, selected={selectedIndex}");
         SetRows(windows, selectedIndex);
         FitToRows();
+        UpdateLayout();
+        BringSelectionIntoView();
         LoadMissingIcons();
     }
 
@@ -77,6 +110,23 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         if (sender is FrameworkElement { DataContext: OverlayItem row })
         {
             ItemClicked?.Invoke(Array.IndexOf(_rows, row));
+        }
+    }
+
+    private void EndWarmUp()
+    {
+        if (_warmingUp)
+        {
+            _warmingUp = false;
+            Opacity = 1;
+        }
+    }
+
+    private void BringSelectionIntoView()
+    {
+        if (Rows.ItemContainerGenerator.ContainerFromIndex(_selected) is FrameworkElement row)
+        {
+            row.BringIntoView();
         }
     }
 
@@ -122,14 +172,25 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         // not its ancestors, so the call exits early. UpdateLayout processes them first.
         Panel.UpdateLayout();
         Panel.Measure(new Size(OverlayWidth, double.PositiveInfinity));
-        Width = OverlayWidth;
-        Height = Panel.DesiredSize.Height;
-
         var scale = monitor.Dpi / DefaultDpi;
+        Width = OverlayWidth;
+        Height = Math.Min(Panel.DesiredSize.Height, monitor.Height * MaxHeightShare / scale);
+
         var width = (int)Math.Ceiling(Width * scale);
         var height = (int)Math.Ceiling(Height * scale);
         var (x, y) = monitor.Center(width, height);
         OverlayNative.Place(new WindowInteropHelper(this).Handle, x, y, width, height);
+    }
+
+    /// <summary>A window without an icon gets the fallback, and maybe its package icon later.</summary>
+    private void LoadIcon(OverlayItem row)
+    {
+        row.Icon = _icons.Load(row.Handle);
+        if (row.Icon is null)
+        {
+            row.Icon = IconCache.Fallback;
+            _icons.LoadPackaged(row.Handle, icon => row.Icon = icon);
+        }
     }
 
     /// <summary>
@@ -142,10 +203,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         {
             if (row.Icon is null)
             {
-                Dispatcher.BeginInvoke(
-                    DispatcherPriority.Background,
-                    () => row.Icon = _icons.Load(row.Handle)
-                );
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () => LoadIcon(row));
             }
         }
     }

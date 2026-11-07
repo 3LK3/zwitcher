@@ -93,6 +93,8 @@ Decision table inside the callback:
 | Tab down | `altDown && !switcherActive` | post `Activate` (or `ActivatePrev` if Shift held), swallow |
 | Tab down | `switcherActive` | post `Next` / `Prev`, swallow |
 | Esc down | `switcherActive` | post `Cancel`, swallow |
+| Left / Up down | `switcherActive` | post `Prev`, swallow |
+| Right / Down down | `switcherActive` | post `Next`, swallow |
 | Alt up | `switcherActive` | post `Confirm`, **pass through** |
 | anything else | — | pass through |
 
@@ -182,7 +184,17 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
   `Dispatcher` item each at `Background` priority on the UI thread, so key presses run
   in between. `WM_GETICON` is a cross-process call, so it goes through
   `SendMessageTimeout` with `SMTO_ABORTIFHUNG`. The cache is per HWND and drops windows
-  that are no longer listed.
+  that are no longer listed. Lookup order: `WM_GETICON`, class icon, then a fallback icon,
+  which a packaged app's icon replaces if there is one.
+- **Packaged icons:** the frame belongs to ApplicationFrameHost and has no icon, so
+  `PackagedIcons` goes through the AppUserModelID (`SHGetPropertyStoreForWindow`) and the
+  shell (`IShellItemImageFactory`). Measured at up to 150 ms cold and 11 ms warm, so it runs
+  on a pool thread and posts the result back. This is the one exception to the two threads.
+  Nothing may escape from that thread, because an uncaught exception ends the process.
+- **Long lists:** the height is capped at 80% of the work area. Rows scroll with a hidden
+  scroll bar, and the selection is kept in view.
+- **Warm-up:** the overlay is shown once at startup with `Opacity=0`, which takes the first
+  real open from about 94 ms to 27 ms.
 
 - **Mouse:** a click on a row raises `ItemClicked`. Hovering doesn't move the selection:
   the overlay opens under a resting cursor, so that could silently change the selection

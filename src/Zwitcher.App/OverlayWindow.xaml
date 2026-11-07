@@ -22,40 +22,42 @@
         BorderThickness="1"
         CornerRadius="8"
     >
-        <ItemsControl x:Name="Rows" Focusable="False">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border
-                        x:Name="Row"
-                        Padding="8,5"
-                        Background="Transparent"
-                        CornerRadius="5"
-                        MouseLeftButtonUp="OnRowClicked"
-                    >
-                        <DockPanel>
-                            <Image
-                                Width="24"
-                                Height="24"
-                                Margin="0,0,10,0"
-                                DockPanel.Dock="Left"
-                                Source="{Binding Icon}"
-                            />
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                FontSize="14"
-                                Foreground="#FFF2F2F2"
-                                Text="{Binding Title}"
-                                TextTrimming="CharacterEllipsis"
-                            />
-                        </DockPanel>
-                    </Border>
-                    <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                            <Setter TargetName="Row" Property="Background" Value="#FF2F6FDE" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <ScrollViewer x:Name="Scroller" Focusable="False" VerticalScrollBarVisibility="Hidden">
+            <ItemsControl x:Name="Rows" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border
+                            x:Name="Row"
+                            Padding="8,5"
+                            Background="Transparent"
+                            CornerRadius="5"
+                            MouseLeftButtonUp="OnRowClicked"
+                        >
+                            <DockPanel>
+                                <Image
+                                    Width="24"
+                                    Height="24"
+                                    Margin="0,0,10,0"
+                                    DockPanel.Dock="Left"
+                                    Source="{Binding Icon}"
+                                />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontSize="14"
+                                    Foreground="#FFF2F2F2"
+                                    Text="{Binding Title}"
+                                    TextTrimming="CharacterEllipsis"
+                                />
+                            </DockPanel>
+                        </Border>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="#FF2F6FDE" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Border>
 </Window>

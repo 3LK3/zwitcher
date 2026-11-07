@@ -46,6 +46,7 @@ public sealed partial class App : Application
         // show/hide is fast. EnsureHandle creates the native window without displaying it.
         _overlay = new OverlayWindow();
         new WindowInteropHelper(_overlay).EnsureHandle();
+        _overlay.WarmUp();
 
         var state = new SwitcherState();
         var controller = new SwitcherController(tracker, _overlay, new WindowActivator(), state);

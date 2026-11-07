@@ -189,6 +189,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M7 – Daily-driver polish
 
+✓ DONE
+
 **Goal:** No reason to switch back to the native Alt+Tab.
 
 **Scope**
@@ -197,7 +199,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - Long lists: a sensible maximum height, scrolling, and keeping the selection
   visible.
 - UWP/packaged app icons (via the AppUserModelID / package), with a fallback icon.
-- Edge cases: hung windows (`WM_GETICON` already uses
+- Edge cases: hung windows (`WM_GETICON` uses
   `SendMessageTimeout`), windows without a title, fullscreen games and
   exclusive-fullscreen apps.
 - Keyboard extras: arrow keys while Alt is held.

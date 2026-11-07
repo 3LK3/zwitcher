@@ -9,6 +9,10 @@ public sealed class HookDecisionsTests
     private const uint LeftAlt = 0xA4;
     private const uint RightAlt = 0xA5;
     private const uint LetterA = 0x41;
+    private const uint ArrowLeft = 0x25;
+    private const uint ArrowUp = 0x26;
+    private const uint ArrowRight = 0x27;
+    private const uint ArrowDown = 0x28;
 
     private static readonly HookDecision PassThrough = new(null, false);
 
@@ -102,5 +106,44 @@ public sealed class HookDecisionsTests
     public void Any_other_key_passes_through(bool active)
     {
         Assert.Equal(PassThrough, Down(LetterA, alt: true, shift: false, active));
+    }
+
+    [Theory]
+    [InlineData(ArrowLeft)]
+    [InlineData(ArrowUp)]
+    public void Left_and_up_while_active_move_back_and_swallow(uint key)
+    {
+        var decision = Down(key, alt: true, shift: false, active: true);
+
+        Assert.Equal(new HookDecision(SwitcherCommand.Prev, true), decision);
+    }
+
+    [Theory]
+    [InlineData(ArrowRight)]
+    [InlineData(ArrowDown)]
+    public void Right_and_down_while_active_move_next_and_swallow(uint key)
+    {
+        var decision = Down(key, alt: true, shift: false, active: true);
+
+        Assert.Equal(new HookDecision(SwitcherCommand.Next, true), decision);
+    }
+
+    [Theory]
+    [InlineData(ArrowLeft, false)]
+    [InlineData(ArrowLeft, true)]
+    [InlineData(ArrowUp, true)]
+    [InlineData(ArrowRight, true)]
+    [InlineData(ArrowDown, true)]
+    public void Arrows_pass_through_while_idle(uint key, bool alt)
+    {
+        Assert.Equal(PassThrough, Down(key, alt, shift: false, active: false));
+    }
+
+    [Theory]
+    [InlineData(ArrowLeft)]
+    [InlineData(ArrowDown)]
+    public void Arrow_key_up_passes_through_while_active(uint key)
+    {
+        Assert.Equal(PassThrough, Up(key, active: true));
     }
 }

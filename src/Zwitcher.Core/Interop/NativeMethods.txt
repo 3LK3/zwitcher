@@ -34,3 +34,14 @@ WM_QUIT
 GetModuleHandle
 SetWinEventHook
 UnhookWinEvent
+SHGetPropertyStoreForWindow
+IPropertyStore
+SHCreateItemInKnownFolder
+IShellItemImageFactory
+FOLDERID_AppsFolder
+PKEY_AppUserModel_ID
+PropVariantClear
+DeleteObject
+GetDC
+ReleaseDC
+GetDIBits

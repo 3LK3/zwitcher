@@ -12,6 +12,10 @@ public static class HookDecisions
     private const uint VkTab = 0x09;
     private const uint VkMenu = 0x12;
     private const uint VkEscape = 0x1B;
+    private const uint VkLeft = 0x25;
+    private const uint VkUp = 0x26;
+    private const uint VkRight = 0x27;
+    private const uint VkDown = 0x28;
     private const uint VkLeftMenu = 0xA4;
     private const uint VkRightMenu = 0xA5;
 
@@ -47,6 +51,17 @@ public static class HookDecisions
         if (virtualKey == VkEscape && switcherActive)
         {
             return new HookDecision(SwitcherCommand.Cancel, true);
+        }
+
+        // Only while active: Alt+Left is "back" in every browser.
+        if (virtualKey is VkLeft or VkUp && switcherActive)
+        {
+            return new HookDecision(SwitcherCommand.Prev, true);
+        }
+
+        if (virtualKey is VkRight or VkDown && switcherActive)
+        {
+            return new HookDecision(SwitcherCommand.Next, true);
         }
 
         return PassThrough;
