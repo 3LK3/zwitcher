@@ -1,15 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+        <!-- WinForms is referenced only for NotifyIcon (WPF has no tray icon). -->
+        <UseWindowsForms>true</UseWindowsForms>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
+    <ItemGroup>
+        <!-- Avoid WPF/WinForms type ambiguity (Application, MessageBox, ...) from implicit usings. -->
+        <Using Remove="System.Windows.Forms" />
+        <Using Remove="System.Drawing" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Zwitcher.Core\Zwitcher.Core.csproj" />
-  </ItemGroup>
-
+    <ItemGroup>
+        <ProjectReference Include="..\Zwitcher.Core\Zwitcher.Core.csproj" />
+    </ItemGroup>
 </Project>

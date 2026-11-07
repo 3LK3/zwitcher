@@ -1,9 +1,12 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Zwitcher.App/Zwitcher.App.csproj" />
-    <Project Path="src/Zwitcher.Core/Zwitcher.Core.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Zwitcher.Core.Tests/Zwitcher.Core.Tests.csproj" />
-  </Folder>
+    <Folder Name="/docs/">
+        <File Path="docs/ARCHITECTURE.md" />
+    </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/Zwitcher.App/Zwitcher.App.csproj" />
+        <Project Path="src/Zwitcher.Core/Zwitcher.Core.csproj" />
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/Zwitcher.Core.Tests/Zwitcher.Core.Tests.csproj" />
+    </Folder>
 </Solution>
