@@ -16,6 +16,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Include="Assets\zwitcher.ico" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Zwitcher.Core\Zwitcher.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource
+            Include="Assets\zwitcher.ico"
+            LogicalName="Zwitcher.App.Assets.zwitcher.ico"
+        />
     </ItemGroup>
 </Project>

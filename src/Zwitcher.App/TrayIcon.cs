@@ -6,18 +6,21 @@ namespace Zwitcher.App;
 /// <summary>Notification-area icon with an Exit menu. WPF has no tray API, so this wraps NotifyIcon.</summary>
 public sealed class TrayIcon : IDisposable
 {
+    private const string IconResourceName = "Zwitcher.App.Assets.zwitcher.ico";
+
     private readonly NotifyIcon _icon;
     private readonly ContextMenuStrip _menu;
+    private readonly Icon _image;
 
     public TrayIcon()
     {
         _menu = new ContextMenuStrip();
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
+        _image = LoadIcon();
         _icon = new NotifyIcon
         {
-            // Placeholder until we have an app icon.
-            Icon = SystemIcons.Application,
+            Icon = _image,
             Text = "Zwitcher",
             ContextMenuStrip = _menu,
             Visible = true,
@@ -32,5 +35,18 @@ public sealed class TrayIcon : IDisposable
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();
+        // NotifyIcon does not take ownership of the Icon assigned to it.
+        _image.Dispose();
+    }
+
+    private static Icon LoadIcon()
+    {
+        using var stream =
+            typeof(TrayIcon).Assembly.GetManifestResourceStream(IconResourceName)
+            ?? throw new InvalidOperationException($"Missing resource '{IconResourceName}'.");
+
+        // Requesting the tray size picks the closest frame in the .ico, so the icon stays
+        // sharp. Icon.ExtractAssociatedIcon would only give us a downscaled 32 px image.
+        return new Icon(stream, SystemInformation.SmallIconSize);
     }
 }
