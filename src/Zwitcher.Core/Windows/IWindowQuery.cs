@@ -6,6 +6,11 @@ public interface IWindowQuery
     /// <summary>All top-level windows in z-order, topmost first.</summary>
     IReadOnlyList<nint> EnumerateTopLevel();
 
+    /// <summary>The foreground window, or 0 if there is none.</summary>
+    nint GetForegroundWindow();
+
+    bool IsTopLevel(nint window);
+
     bool IsVisible(nint window);
 
     bool IsCloaked(nint window);

@@ -101,7 +101,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - Compact list layout: app icon and title, with a clear selection highlight.
 - Icon loading (`WM_GETICON` / class icon fallback), cached per HWND/process,
   never loaded on the show path if a cached icon exists.
-- Shown on the monitor of the current foreground window, centered.
+- Shown on the primary monitor, centered.
 - Temporary **debug hotkey** via `RegisterHotKey` (e.g. Ctrl+Alt+Space), cycling
   with repeated presses. This is wired to the controller as `Activate`/`Next`.
   The hotkey is removed in M5.
@@ -166,6 +166,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M6 – MRU tracking and live updates
 
+✓ DONE
+
 **Goal:** Correct recency order, and a list that stays correct while open.
 
 **Scope**
@@ -214,7 +216,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - `Settings` record and `ISettingsStore` (JSON in `%AppData%\Zwitcher`), loaded at
   startup. Changes are applied on the UI thread.
 - Initial settings: enabled, start with Windows (HKCU `Run` key), show on
-  (monitor with the cursor vs. the foreground window), and the layout variant.
+  (primary monitor by default, or the monitor with the cursor or the foreground window), and the layout variant.
 - Simple settings window opened from the tray.
 - Layout made pluggable: `OverlayWindow` picks an item template / layout strategy
   from settings, so new layouts (grid, grouped) need no controller changes.

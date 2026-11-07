@@ -22,6 +22,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 
     private OverlayItem[] _rows = [];
     private int _selected;
+    private MonitorArea? _monitor;
 
     public OverlayWindow()
     {
@@ -37,7 +38,8 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 #endif
         _icons.KeepOnly(windows);
         SetRows(windows, selectedIndex);
-        PlaceOnForegroundMonitor();
+        MoveToPrimaryMonitor();
+        FitToRows();
         Show();
         LoadMissingIcons();
 #if DEBUG
@@ -58,7 +60,9 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 
     public void UpdateWindows(IReadOnlyList<WindowInfo> windows, int selectedIndex)
     {
+        Debug.WriteLine($"Overlay updated: {windows.Count} rows, selected={selectedIndex}");
         SetRows(windows, selectedIndex);
+        FitToRows();
         LoadMissingIcons();
     }
 
@@ -95,16 +99,28 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     /// Works in physical pixels, because WPF's Left and Top are unreliable across monitors
     /// with different DPI. The first move lets WPF pick up the DPI of the target monitor.
     /// </summary>
-    private void PlaceOnForegroundMonitor()
+    private void MoveToPrimaryMonitor()
     {
-        var handle = new WindowInteropHelper(this).Handle;
-        var monitor = OverlayNative.GetForegroundMonitor();
+        var monitor = OverlayNative.GetPrimaryMonitor();
         OverlayNative.Move(
-            handle,
+            new WindowInteropHelper(this).Handle,
             monitor.Left + (monitor.Width / 2),
             monitor.Top + (monitor.Height / 2)
         );
+        _monitor = monitor;
+    }
 
+    /// <summary>Sizes the window to the rows and centers it on the current monitor.</summary>
+    private void FitToRows()
+    {
+        if (_monitor is not { } monitor)
+        {
+            return;
+        }
+
+        // Measure alone would return the old size: new rows only mark the items panel as dirty,
+        // not its ancestors, so the call exits early. UpdateLayout processes them first.
+        Panel.UpdateLayout();
         Panel.Measure(new Size(OverlayWidth, double.PositiveInfinity));
         Width = OverlayWidth;
         Height = Panel.DesiredSize.Height;
@@ -113,7 +129,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         var width = (int)Math.Ceiling(Width * scale);
         var height = (int)Math.Ceiling(Height * scale);
         var (x, y) = monitor.Center(width, height);
-        OverlayNative.Place(handle, x, y, width, height);
+        OverlayNative.Place(new WindowInteropHelper(this).Handle, x, y, width, height);
     }
 
     /// <summary>

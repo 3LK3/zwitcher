@@ -17,6 +17,7 @@ public sealed partial class App : Application
     private const string InstanceMutexName = @"Local\Zwitcher-7f3c1a52-8e4b-4d06-9b1e-2c5d6a90f3e7";
 
     private SingleInstanceGuard? _instanceGuard;
+    private WinEventSource? _windowEvents;
     private OverlayWindow? _overlay;
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
@@ -37,7 +38,9 @@ public sealed partial class App : Application
         StartDebugLog();
 #endif
 
-        var tracker = new WindowTracker(new Win32WindowQuery());
+        _windowEvents = new WinEventSource();
+        var tracker = new WindowTracker(new Win32WindowQuery(), _windowEvents);
+        tracker.Start();
 
         // Pre-create the overlay: build the HWND now but never call Show(), so later
         // show/hide is fast. EnsureHandle creates the native window without displaying it.
@@ -53,6 +56,16 @@ public sealed partial class App : Application
         _tray.ExitRequested += (_, _) => Shutdown();
 
         var poster = new CommandPoster(_messageWindow.Handle);
+
+        // Posted, not called: WinEvents can arrive during any message pumping, so the controller
+        // could be in the middle of something. Only while active, so idle costs nothing.
+        tracker.WindowsChanged += () =>
+        {
+            if (state.IsActive)
+            {
+                poster.Post(SwitcherCommand.WindowsChanged);
+            }
+        };
 
 #if DEBUG
         _tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, state);
@@ -71,6 +84,7 @@ public sealed partial class App : Application
     {
         // The hook goes first, so that no new commands arrive during shutdown.
         _hook?.Dispose();
+        _windowEvents?.Dispose();
         _tray?.Dispose();
         _messageWindow?.Dispose();
         _instanceGuard?.Dispose();

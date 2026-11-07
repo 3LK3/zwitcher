@@ -66,6 +66,7 @@ enum SwitcherCommand
     Prev,           // Shift+Tab while active
     Confirm,        // Alt released while active
     Cancel,         // Esc while active
+    WindowsChanged, // the list may have changed while active (not from the hook)
 }
 ```
 
@@ -110,13 +111,26 @@ itself is the pure function `HookDecisions.Decide`, so it's unit tested.
 - `Enabled = false` passes every key through, so the native Alt+Tab works.
 
 ### `WindowTracker` (Core/Windows)
-- On startup: `EnumWindows` → filter → initial list (z-order as initial MRU guess).
-- Subscribes (on the UI thread, `WINEVENT_OUTOFCONTEXT`) to:
-  - `EVENT_SYSTEM_FOREGROUND`: move window to the front of the MRU list
-  - `EVENT_OBJECT_DESTROY` (filtered to `OBJID_WINDOW`): remove window
-  - `EVENT_OBJECT_NAMECHANGE`: update title
-  - `EVENT_OBJECT_SHOW` / `EVENT_OBJECT_CLOAKED` / `UNCLOAKED`: re-evaluate eligibility
-- Exposes `IReadOnlyList<WindowInfo> Snapshot()` and an event `WindowsChanged`.
+The tracker keeps the **order**, not the list. `Snapshot()` enumerates and filters on every
+call (a few milliseconds, once per open), then sorts by `MruList`. So titles and eligibility
+can't go stale, and a missed event costs order at worst, not a wrong list.
+
+- On startup: `EnumWindows` → filter → seeds `MruList` (z-order as the initial guess).
+- `WinEventSource` subscribes on the UI thread (`WINEVENT_OUTOFCONTEXT |
+  WINEVENT_SKIPOWNPROCESS`, only `OBJID_WINDOW` / `CHILDID_SELF`). Own-process events are
+  skipped, or showing the overlay would report a change.
+  - `EVENT_SYSTEM_FOREGROUND`: move the window and its root owner to the front. A dialog
+    isn't listed, so using it counts for its owner. Doesn't raise `WindowsChanged`, so rows
+    don't reorder while tabbing.
+  - `EVENT_SYSTEM_MINIMIZESTART`: move the window to the back.
+  - `EVENT_OBJECT_DESTROY`: remove the window, so a reused handle can't inherit its rank.
+    Raises `WindowsChanged` if it was known.
+  - `EVENT_OBJECT_SHOW` / `HIDE` / `NAMECHANGE` / `CLOAKED` / `UNCLOAKED`: raise
+    `WindowsChanged` for top-level windows.
+- Exposes `Snapshot()`, `IsForeground(window)` and an event `WindowsChanged`.
+- WinEvents can arrive during any message pumping, so `WindowsChanged` never calls the
+  controller. The app posts `SwitcherCommand.WindowsChanged` instead, only while
+  `switcherActive` is set. That keeps the message queue as the only queue.
 - Eligibility filtering lives in a single `WindowFilter` class that reads window
   properties through `IWindowQuery`, so tests can use fake data.
 
@@ -161,7 +175,7 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
 
 - **Alt+Tab:** the window sets `WS_EX_TOOLWINDOW`, which keeps it out of native Alt+Tab
   and out of `WindowFilter`.
-- **Placement:** centered in the work area of the foreground window's monitor. Position
+- **Placement:** centered in the work area of the primary monitor. Position
   and size are set in physical pixels with `SetWindowPos`, because WPF's `Left` and `Top`
   are unreliable across monitors with different DPI.
 - **Icons:** `Show` only uses cached icons. Missing ones load afterwards, one
@@ -220,12 +234,12 @@ never from the hook callback.** This relies on measured, undocumented behavior.
 
 | State | Event | Action | Next |
 |---|---|---|---|
-| Idle | `Activate` | snapshot windows; select index 1 (or 0 if only one); `view.Show` | Active |
+| Idle | `Activate` | snapshot windows; select index 1, or 0 if there's only one or index 0 isn't in the foreground (desktop or taskbar has focus); `view.Show` | Active |
 | Idle | `ActivatePrev` | snapshot windows; select the last index; `view.Show` | Active |
 | Idle | other | ignore | Idle |
 | Active | `Activate` / `ActivatePrev` | ignore (the hook never posts these while active) | Active |
 | Active | `Next` / `Prev` | move selection with wrap-around; `view.UpdateSelection` | Active |
-| Active | `WindowsChanged` | re-snapshot; keep the same window selected if it still exists; `view.UpdateWindows` | Active |
+| Active | `WindowsChanged` | re-snapshot; if unchanged, nothing; else keep the same window selected if it still exists; `view.UpdateWindows` | Active |
 | Active | `Confirm` / `ItemClicked(i)` | `view.Hide`; activate selected; clear `switcherActive` | Idle |
 | Active | `Cancel` | `view.Hide`; clear `switcherActive` | Idle |
 
@@ -233,6 +247,7 @@ Edge cases:
 - Empty window list on `Activate` / `ActivatePrev`: don't show anything. Clear the flag
   and return to Idle.
 - Selected window closes while active: select the nearest remaining index.
+- No windows left while active: hide without activating and return to Idle.
 - Activation fails (window gone): ignore and stay Idle.
 
 ## Typical flow
@@ -263,7 +278,7 @@ User            Hook thread            UI thread
 
 Startup (App):
 1. Single-instance check (named mutex).
-2. Create the `WindowTracker` and do the initial enumeration.
+2. Create the `WinEventSource` and the `WindowTracker`, and do the initial enumeration.
 3. Pre-create the overlay window hidden (create the HWND, so first show is instant).
 4. Create the `SwitcherController` and the message-only window on the UI thread.
 5. Start the `KeyboardHook` thread last.

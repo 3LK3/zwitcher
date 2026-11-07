@@ -57,6 +57,9 @@ public sealed class SwitcherController
             case SwitcherCommand.Cancel when _active:
                 Close(null);
                 break;
+            case SwitcherCommand.WindowsChanged when _active:
+                Refresh();
+                break;
         }
     }
 
@@ -73,9 +76,52 @@ public sealed class SwitcherController
         }
 
         _windows = windows;
-        _selected = reverse ? windows.Count - 1 : Math.Min(1, windows.Count - 1);
+        _selected = reverse ? windows.Count - 1 : FirstSelection(windows);
         _active = true;
         _view.Show(_windows, _selected);
+    }
+
+    /// <summary>
+    /// The previously used window: the second one, unless the first isn't current. That happens
+    /// when the desktop or the taskbar has focus, and then the first one is what was used last.
+    /// </summary>
+    private int FirstSelection(IReadOnlyList<WindowInfo> windows) =>
+        _tracker.IsForeground(windows[0].Handle) ? Math.Min(1, windows.Count - 1) : 0;
+
+    private void Refresh()
+    {
+        var windows = _tracker.Snapshot();
+
+        // Title updates of unrelated windows land here too. Rebuilding rows would flicker.
+        if (windows.SequenceEqual(_windows))
+        {
+            return;
+        }
+
+        if (windows.Count == 0)
+        {
+            Close(null);
+            return;
+        }
+
+        _selected = IndexAfterRefresh(windows);
+        _windows = windows;
+        _view.UpdateWindows(_windows, _selected);
+    }
+
+    /// <summary>The same window if it still exists, else the nearest index.</summary>
+    private int IndexAfterRefresh(IReadOnlyList<WindowInfo> windows)
+    {
+        var selected = _windows[_selected].Handle;
+        for (var i = 0; i < windows.Count; i++)
+        {
+            if (windows[i].Handle == selected)
+            {
+                return i;
+            }
+        }
+
+        return Math.Min(_selected, windows.Count - 1);
     }
 
     private void Move(int delta)

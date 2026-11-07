@@ -23,6 +23,11 @@ public sealed class Win32WindowQuery : IWindowQuery
         return windows;
     }
 
+    public nint GetForegroundWindow() => PInvoke.GetForegroundWindow();
+
+    public bool IsTopLevel(nint window) =>
+        PInvoke.GetAncestor((HWND)window, GET_ANCESTOR_FLAGS.GA_ROOT) == (HWND)window;
+
     public bool IsVisible(nint window) => PInvoke.IsWindowVisible((HWND)window);
 
     public unsafe bool IsCloaked(nint window)

@@ -21,11 +21,11 @@ public static class OverlayNative
         );
     }
 
-    /// <summary>The monitor of the foreground window, or the primary one if there is none.</summary>
-    public static unsafe MonitorArea GetForegroundMonitor()
+    /// <summary>The primary monitor, which by definition has its origin at (0, 0).</summary>
+    public static unsafe MonitorArea GetPrimaryMonitor()
     {
-        var monitor = PInvoke.MonitorFromWindow(
-            PInvoke.GetForegroundWindow(),
+        var monitor = PInvoke.MonitorFromPoint(
+            new System.Drawing.Point(0, 0),
             MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY
         );
 

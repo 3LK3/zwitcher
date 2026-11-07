@@ -10,15 +10,15 @@ public sealed class SwitcherControllerTests
     private readonly FakeView _view = new();
     private readonly FakeActivator _activator = new();
     private readonly FakeState _state = new() { IsActive = true };
+    private readonly FakeTracker _tracker = new();
+
+    private static WindowInfo Window(int index) => new(100 + index, $"Window {index}", index, null);
 
     private SwitcherController CreateController(int windowCount)
     {
-        var windows = Enumerable
-            .Range(0, windowCount)
-            .Select(i => new WindowInfo(100 + i, $"Window {i}", i, null))
-            .ToList();
+        _tracker.Windows = [.. Enumerable.Range(0, windowCount).Select(Window)];
 
-        return new SwitcherController(new FakeTracker(windows), _view, _activator, _state);
+        return new SwitcherController(_tracker, _view, _activator, _state);
     }
 
     private static void Send(SwitcherController controller, params SwitcherCommand[] commands)
@@ -258,9 +258,136 @@ public sealed class SwitcherControllerTests
         Assert.Equal(1, _activator.PrepareCount);
     }
 
-    private sealed class FakeTracker(IReadOnlyList<WindowInfo> windows) : IWindowTracker
+    [Fact]
+    public void Activate_selects_the_first_window_if_it_is_not_in_the_foreground()
     {
-        public IReadOnlyList<WindowInfo> Snapshot() => windows;
+        var controller = CreateController(4);
+        _tracker.FirstIsForeground = false;
+
+        Send(controller, Activate);
+
+        Assert.Equal(["Show 4 0"], _view.Calls);
+    }
+
+    [Fact]
+    public void ActivatePrev_selects_the_last_window_if_the_first_is_not_in_the_foreground()
+    {
+        var controller = CreateController(4);
+        _tracker.FirstIsForeground = false;
+
+        Send(controller, ActivatePrev);
+
+        Assert.Equal(["Show 4 3"], _view.Calls);
+    }
+
+    [Fact]
+    public void WindowsChanged_keeps_the_same_window_selected()
+    {
+        var controller = CreateController(3);
+        Send(controller, Activate);
+
+        _tracker.Windows = [Window(9), .. _tracker.Windows];
+        Send(controller, WindowsChanged);
+
+        Assert.Equal("Update 4 2", _view.Calls[^1]);
+        Send(controller, Confirm);
+        Assert.Equal([101], _activator.Activated);
+    }
+
+    [Fact]
+    public void WindowsChanged_selects_the_nearest_index_if_the_selected_window_closed()
+    {
+        var controller = CreateController(4);
+        Send(controller, Activate);
+
+        _tracker.Windows = [Window(0), Window(2), Window(3)];
+        Send(controller, WindowsChanged);
+
+        Assert.Equal("Update 3 1", _view.Calls[^1]);
+        Send(controller, Confirm);
+        Assert.Equal([102], _activator.Activated);
+    }
+
+    [Fact]
+    public void WindowsChanged_clamps_to_the_end_if_the_last_window_closed()
+    {
+        var controller = CreateController(3);
+        Send(controller, Activate, Next);
+
+        _tracker.Windows = [Window(0), Window(1)];
+        Send(controller, WindowsChanged);
+
+        Assert.Equal("Update 2 1", _view.Calls[^1]);
+    }
+
+    [Fact]
+    public void Next_after_WindowsChanged_uses_the_new_list()
+    {
+        var controller = CreateController(2);
+        Send(controller, Activate);
+
+        _tracker.Windows = [Window(0), Window(1), Window(2)];
+        Send(controller, WindowsChanged, Next, Confirm);
+
+        Assert.Equal([102], _activator.Activated);
+    }
+
+    [Fact]
+    public void WindowsChanged_shows_a_new_title()
+    {
+        var controller = CreateController(2);
+        Send(controller, Activate);
+
+        _tracker.Windows = [Window(0), Window(1) with { Title = "Renamed" }];
+        Send(controller, WindowsChanged);
+
+        Assert.Equal("Update 2 1", _view.Calls[^1]);
+    }
+
+    [Fact]
+    public void WindowsChanged_with_an_unchanged_list_does_not_touch_the_view()
+    {
+        var controller = CreateController(3);
+        Send(controller, Activate);
+
+        Send(controller, WindowsChanged);
+
+        Assert.Equal(["Show 3 1"], _view.Calls);
+    }
+
+    [Fact]
+    public void WindowsChanged_with_no_windows_left_closes_without_activating()
+    {
+        var controller = CreateController(2);
+        Send(controller, Activate);
+
+        _tracker.Windows = [];
+        Send(controller, WindowsChanged);
+
+        Assert.Equal("Hide", _view.Calls[^1]);
+        Assert.Empty(_activator.Activated);
+        Assert.False(_state.IsActive);
+    }
+
+    [Fact]
+    public void WindowsChanged_is_ignored_in_idle()
+    {
+        var controller = CreateController(3);
+
+        Send(controller, WindowsChanged);
+
+        Assert.Empty(_view.Calls);
+    }
+
+    private sealed class FakeTracker : IWindowTracker
+    {
+        public IReadOnlyList<WindowInfo> Windows { get; set; } = [];
+
+        public bool FirstIsForeground { get; set; } = true;
+
+        public IReadOnlyList<WindowInfo> Snapshot() => Windows;
+
+        public bool IsForeground(nint window) => FirstIsForeground;
     }
 
     private sealed class FakeActivator : IWindowActivator

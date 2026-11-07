@@ -11,7 +11,7 @@ GetWindowText
 GetWindowThreadProcessId
 DwmGetWindowAttribute
 GetForegroundWindow
-MonitorFromWindow
+MonitorFromPoint
 GetMonitorInfo
 GetDpiForMonitor
 SetWindowPos
@@ -32,3 +32,5 @@ GetCurrentThreadId
 KBDLLHOOKSTRUCT
 WM_QUIT
 GetModuleHandle
+SetWinEventHook
+UnhookWinEvent

@@ -20,4 +20,7 @@ public enum SwitcherCommand
 
     /// <summary>Esc while active.</summary>
     Cancel,
+
+    /// <summary>The window list may have changed while active. Not from the keyboard hook.</summary>
+    WindowsChanged,
 }
