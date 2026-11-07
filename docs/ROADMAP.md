@@ -109,7 +109,6 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
   selection.
 - The overlay appears without visible delay (< 100 ms; measure once with a
   `Stopwatch` in debug builds).
-- It looks right on 100 % and 150 % scaled monitors.
 
 ---
 
