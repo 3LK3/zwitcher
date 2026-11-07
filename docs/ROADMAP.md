@@ -188,7 +188,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - Long lists: a sensible maximum height, scrolling, and keeping the selection
   visible.
 - UWP/packaged app icons (via the AppUserModelID / package), with a fallback icon.
-- Edge cases: hung windows (don't block on `WM_GETICON`; use
+- Edge cases: hung windows (`WM_GETICON` already uses
   `SendMessageTimeout`), windows without a title, fullscreen games and
   exclusive-fullscreen apps.
 - Keyboard extras: arrow keys while Alt is held.

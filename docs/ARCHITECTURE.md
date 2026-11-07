@@ -153,6 +153,20 @@ interface IOverlayView
 The WPF implementation is a pre-created, hidden, borderless, topmost window. It
 only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#thumbnails)).
 
+- **Alt+Tab:** the window sets `WS_EX_TOOLWINDOW`, which keeps it out of native Alt+Tab
+  and out of `WindowFilter`.
+- **Placement:** centered in the work area of the foreground window's monitor. Position
+  and size are set in physical pixels with `SetWindowPos`, because WPF's `Left` and `Top`
+  are unreliable across monitors with different DPI.
+- **Icons:** `Show` only uses cached icons. Missing ones load afterwards, one
+  `Dispatcher` item each at `Background` priority on the UI thread, so key presses run
+  in between. `WM_GETICON` is a cross-process call, so it goes through
+  `SendMessageTimeout` with `SMTO_ABORTIFHUNG`. The cache is per HWND and drops windows
+  that are no longer listed.
+
+Until M5, `DebugHotkeys` stands in for the keyboard hook with `RegisterHotKey`:
+Ctrl+Alt+Space posts `Activate` or `Next`, and Ctrl+Alt+Shift+Space posts `Cancel`.
+
 ### `IWindowActivator` (Core/Activation)
 Wraps bringing a window to the foreground: restore if minimized
 (`ShowWindow(SW_RESTORE)`), then `SetForegroundWindow`. While the overlay is
