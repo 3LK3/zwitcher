@@ -1,2 +1,12 @@
 PostMessage
 WM_APP
+EnumWindows
+IsWindowVisible
+GetWindowLong
+GetAncestor
+GetLastActivePopup
+GetShellWindow
+GetWindowTextLength
+GetWindowText
+GetWindowThreadProcessId
+DwmGetWindowAttribute

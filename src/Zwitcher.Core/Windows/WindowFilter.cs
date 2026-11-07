@@ -39,7 +39,7 @@ public sealed class WindowFilter(IWindowQuery query)
     /// Each group of windows related by ownership gets one entry. Walks from the root owner
     /// down the last active popups to the first visible window, which represents the group.
     /// The article's pseudo-code would drop a visible window with a hidden owner, but its text
-    /// wouldn't. We follow the text, because such windows do appear in native Alt+Tab.
+    /// wouldn't. We follow the text.
     /// </summary>
     private bool IsRepresentativeOfOwnerGroup(nint window)
     {
