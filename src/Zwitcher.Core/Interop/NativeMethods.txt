@@ -22,3 +22,6 @@ SendMessageTimeout
 GetClassLong
 WM_HOTKEY
 WM_GETICON
+SetForegroundWindow
+ShowWindowAsync
+IsIconic

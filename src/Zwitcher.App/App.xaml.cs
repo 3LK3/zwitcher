@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using Zwitcher.App.Debugging;
 using Zwitcher.Core;
+using Zwitcher.Core.Activation;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Interop;
 using Zwitcher.Core.Windows;
@@ -45,12 +46,7 @@ public sealed partial class App : Application
         new WindowInteropHelper(_overlay).EnsureHandle();
 
         var state = new SwitcherState();
-        var controller = new SwitcherController(
-            tracker,
-            _overlay,
-            new LoggingWindowActivator(),
-            state
-        );
+        var controller = new SwitcherController(tracker, _overlay, new WindowActivator(), state);
         _messageWindow = new MessageWindow(controller.Handle);
 
         _tray = new TrayIcon();
@@ -65,7 +61,9 @@ public sealed partial class App : Application
 #endif
 
         // Last, like the keyboard hook that will replace it: everything else must be ready.
-        _hotkeys = new DebugHotkeys(_messageWindow, poster, state);
+        var hotkeys = new DebugHotkeys(_messageWindow, poster, state);
+        _overlay.IsVisibleChanged += (_, args) => hotkeys.SetOverlayOpen((bool)args.NewValue);
+        _hotkeys = hotkeys;
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -145,3 +145,4 @@ whole OS, and Windows silently removes the hook after a timeout.
 - Don't add NuGet packages beyond CsWin32 and test libraries without asking.
 - Don't change this file unless asked. Keep ARCHITECTURE.md in sync with
   structural changes.
+- Don't commit any changes made

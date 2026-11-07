@@ -164,20 +164,45 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
   `SendMessageTimeout` with `SMTO_ABORTIFHUNG`. The cache is per HWND and drops windows
   that are no longer listed.
 
+- **Mouse:** a click on a row raises `ItemClicked`. Hovering doesn't move the selection:
+  the overlay opens under a resting cursor, so that could silently change the selection
+  and a quick Alt+Tab would switch to the wrong window.
+
 Until M5, `DebugHotkeys` stands in for the keyboard hook with `RegisterHotKey`:
-Ctrl+Alt+Space posts `Activate` or `Next`, and Ctrl+Alt+Shift+Space posts `Cancel`.
+Ctrl+Alt+Space posts `Activate` or `Next`. While the overlay is open, Enter posts
+`Confirm` and Esc posts `Cancel`. They are only registered while it's open, because a
+hotkey takes the key away from every other application.
 
 ### `IWindowActivator` (Core/Activation)
 Wraps bringing a window to the foreground: restore if minimized
-(`ShowWindow(SW_RESTORE)`), then `SetForegroundWindow`. While the overlay is
-the foreground window, Windows permits the call.
+(`ShowWindowAsync(SW_RESTORE)`, so a hung window can't block the UI thread), then
+`SetForegroundWindow` on the last active popup if it's visible, else on the window.
+That way focus lands in an open dialog, not in its disabled owner.
+
+The overlay is never the foreground window (`ShowActivated="False"`), so Windows only
+permits `SetForegroundWindow` if
+[another condition](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
+applies. Measured on Windows 11 with injected keys, after ordinary input went to another
+window:
+
+| Trigger | Method | Result |
+|---|---|---|
+| `RegisterHotKey` | `SetForegroundWindow` | works |
+| `WH_KEYBOARD_LL`, key swallowed or passed through | `SetForegroundWindow` | **fails** |
+| `WH_KEYBOARD_LL` | with `AttachThreadInput` | fails |
+| `WH_KEYBOARD_LL` | `SwitchToThisWindow` | fails |
+| `WH_KEYBOARD_LL` | inject a key tap (Alt or F22) first | works |
+
+A process also keeps foreground rights from its launch until the next input, so a test
+right after startup passes misleadingly. **The keyboard hook alone does not grant the
+right, so M5 must choose an approach.**
 
 ## State machine
 
 ```
             Activate
    ┌──────┐ ───────────────► ┌────────┐
-   │ Idle │                  │ Active │ ◄── Next / Prev / WindowsChanged / ItemHover
+   │ Idle │                  │ Active │ ◄── Next / Prev / WindowsChanged
    └──────┘ ◄─────────────── └────────┘
         Confirm / Cancel / ItemClicked
 ```

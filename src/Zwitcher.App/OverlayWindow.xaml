@@ -25,7 +25,13 @@
         <ItemsControl x:Name="Rows" Focusable="False">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border x:Name="Row" Padding="8,5" CornerRadius="5">
+                    <Border
+                        x:Name="Row"
+                        Padding="8,5"
+                        Background="Transparent"
+                        CornerRadius="5"
+                        MouseLeftButtonUp="OnRowClicked"
+                    >
                         <DockPanel>
                             <Image
                                 Width="24"

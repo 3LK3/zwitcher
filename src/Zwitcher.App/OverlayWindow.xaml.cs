@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Zwitcher.Core;
@@ -27,12 +28,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         InitializeComponent();
     }
 
-    // Mouse input arrives in M4.
-    public event Action<int>? ItemClicked
-    {
-        add { }
-        remove { }
-    }
+    public event Action<int>? ItemClicked;
 
     public void Show(IReadOnlyList<WindowInfo> windows, int selectedIndex)
     {
@@ -70,6 +66,14 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     {
         base.OnSourceInitialized(e);
         OverlayNative.MakeToolWindow(new WindowInteropHelper(this).Handle);
+    }
+
+    private void OnRowClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: OverlayItem row })
+        {
+            ItemClicked?.Invoke(Array.IndexOf(_rows, row));
+        }
     }
 
     private void SetRows(IReadOnlyList<WindowInfo> windows, int selectedIndex)
