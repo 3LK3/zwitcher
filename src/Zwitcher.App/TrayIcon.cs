@@ -15,6 +15,13 @@ public sealed class TrayIcon : IDisposable
     public TrayIcon()
     {
         _menu = new ContextMenuStrip();
+#if DEBUG
+        _menu.Items.Add(
+            "Post test commands",
+            null,
+            (_, _) => PostTestCommandsRequested?.Invoke(this, EventArgs.Empty)
+        );
+#endif
         _menu.Items.Add("About", null, (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty));
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
@@ -27,6 +34,10 @@ public sealed class TrayIcon : IDisposable
             Visible = true,
         };
     }
+
+#if DEBUG
+    public event EventHandler? PostTestCommandsRequested;
+#endif
 
     public event EventHandler? AboutRequested;
 
