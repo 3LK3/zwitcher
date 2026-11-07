@@ -8,6 +8,7 @@
         <!-- WFO0003 prefers Application.SetHighDpiMode, which is for WinForms apps. This is a
              WPF app, so the manifest sets DPI awareness. -->
         <NoWarn>$(NoWarn);WFO0003</NoWarn>
+        <ApplicationIcon>Assets\zwitcher.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,9 +26,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource
-            Include="Assets\zwitcher.ico"
-            LogicalName="Zwitcher.App.Assets.zwitcher.ico"
-        />
+        <EmbeddedResource Include="Assets\zwitcher.ico" LogicalName="Zwitcher.App.Assets.zwitcher.ico" />
     </ItemGroup>
 </Project>
