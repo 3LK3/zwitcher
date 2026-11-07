@@ -5,6 +5,9 @@
         <!-- WinForms is referenced only for NotifyIcon (WPF has no tray icon). -->
         <UseWindowsForms>true</UseWindowsForms>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+        <!-- WFO0003 prefers Application.SetHighDpiMode, which is for WinForms apps. This is a
+             WPF app, so the manifest sets DPI awareness. -->
+        <NoWarn>$(NoWarn);WFO0003</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
