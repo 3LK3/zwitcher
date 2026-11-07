@@ -1,0 +1,21 @@
+# Hosted Windows runners are in beta and only ship .NET Core SDK 3.1. They don't support
+# `image`, so the job installs the SDK pinned in global.json itself.
+# https://docs.gitlab.com/ci/runners/hosted_runners/windows/
+build-and-test:
+  stage: test
+  tags:
+    - saas-windows-medium-amd64
+  variables:
+    DOTNET_NOLOGO: "true"
+    DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  # Installed outside the repo so that `csharpier check .` does not scan the SDK files.
+  before_script:
+    - Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile dotnet-install.ps1
+    - ./dotnet-install.ps1 -JsonFile global.json -InstallDir "$env:USERPROFILE/.dotnet"
+    - $env:DOTNET_ROOT = "$env:USERPROFILE/.dotnet"
+    - $env:PATH = "$env:DOTNET_ROOT;$env:PATH"
+  script:
+    - dotnet tool restore
+    - dotnet csharpier check .
+    - dotnet build -warnaserror
+    - dotnet test --no-build
