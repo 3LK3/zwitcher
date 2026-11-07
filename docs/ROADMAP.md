@@ -17,6 +17,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M0 – Skeleton: tray app
 
+✓ DONE
+
 **Goal:** A background app that starts, sits in the tray and exits cleanly.
 
 **Scope**
