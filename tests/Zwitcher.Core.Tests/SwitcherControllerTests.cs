@@ -236,6 +236,28 @@ public sealed class SwitcherControllerTests
         Assert.Empty(_activator.Activated);
     }
 
+    [Theory]
+    [InlineData(4)]
+    [InlineData(0)]
+    public void Opening_prepares_the_activator_once(int windowCount)
+    {
+        var controller = CreateController(windowCount);
+
+        Send(controller, Activate);
+
+        Assert.Equal(1, _activator.PrepareCount);
+    }
+
+    [Fact]
+    public void Commands_while_active_do_not_prepare_again()
+    {
+        var controller = CreateController(4);
+
+        Send(controller, Activate, Next, Activate, Confirm);
+
+        Assert.Equal(1, _activator.PrepareCount);
+    }
+
     private sealed class FakeTracker(IReadOnlyList<WindowInfo> windows) : IWindowTracker
     {
         public IReadOnlyList<WindowInfo> Snapshot() => windows;
@@ -244,6 +266,10 @@ public sealed class SwitcherControllerTests
     private sealed class FakeActivator : IWindowActivator
     {
         public List<nint> Activated { get; } = [];
+
+        public int PrepareCount { get; private set; }
+
+        public void Prepare() => PrepareCount++;
 
         public void Activate(nint handle) => Activated.Add(handle);
     }

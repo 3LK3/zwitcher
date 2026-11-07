@@ -62,6 +62,9 @@ public sealed class SwitcherController
 
     private void Open(bool reverse)
     {
+        // First, because Alt may be released any moment. Also needed for an empty list.
+        _activator.Prepare();
+
         var windows = _tracker.Snapshot();
         if (windows.Count == 0)
         {

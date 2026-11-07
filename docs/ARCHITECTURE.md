@@ -74,9 +74,13 @@ enum SwitcherCommand
 ## Hook-side state
 
 The hook has to decide **synchronously** whether to swallow a key. It can't wait
-for the UI thread. So it keeps a minimal state of its own:
+for the UI thread. It keeps no key state of its own, because tracked state can go stale:
+we miss keys while an elevated window has focus, and a stale "Alt is down" would turn a
+plain Tab into a switcher command.
 
-- `altDown`: tracked from `VK_LMENU`/`VK_RMENU` down/up events (hook thread only).
+- `altDown`: read from `LLKHF_ALTDOWN` on each event.
+- `Shift held`: read with `GetAsyncKeyState`. `GetKeyState` wouldn't work, because the
+  hook thread has no input queue of its own.
 - `switcherActive`: a `volatile bool`. The hook sets it to `true` when it posts
   `Activate` or `ActivatePrev`, and the controller sets it to `false` when it returns
   to Idle.
@@ -94,7 +98,8 @@ Decision table inside the callback:
 Alt key-up is always passed through so the system never sees a "stuck" Alt.
 
 The hook callback does nothing beyond this table. No logging, no allocation, no
-LINQ, no locks. The delegate is stored in a field so the GC can't collect it.
+LINQ, no locks. The delegate is stored in a field so the GC can't collect it. The table
+itself is the pure function `HookDecisions.Decide`, so it's unit tested.
 
 ## Components
 
@@ -102,6 +107,7 @@ LINQ, no locks. The delegate is stored in a field so the GC can't collect it.
 - Starts a dedicated thread, installs `WH_KEYBOARD_LL`, runs `GetMessage` loop.
 - Translates keys to `SwitcherCommand` via the table above and posts them.
 - `Dispose` posts `WM_QUIT` to its thread and unhooks.
+- `Enabled = false` passes every key through, so the native Alt+Tab works.
 
 ### `WindowTracker` (Core/Windows)
 - On startup: `EnumWindows` → filter → initial list (z-order as initial MRU guess).
@@ -168,11 +174,6 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
   the overlay opens under a resting cursor, so that could silently change the selection
   and a quick Alt+Tab would switch to the wrong window.
 
-Until M5, `DebugHotkeys` stands in for the keyboard hook with `RegisterHotKey`:
-Ctrl+Alt+Space posts `Activate` or `Next`. While the overlay is open, Enter posts
-`Confirm` and Esc posts `Cancel`. They are only registered while it's open, because a
-hotkey takes the key away from every other application.
-
 ### `IWindowActivator` (Core/Activation)
 Wraps bringing a window to the foreground: restore if minimized
 (`ShowWindowAsync(SW_RESTORE)`, so a hung window can't block the UI thread), then
@@ -191,11 +192,21 @@ window:
 | `WH_KEYBOARD_LL`, key swallowed or passed through | `SetForegroundWindow` | **fails** |
 | `WH_KEYBOARD_LL` | with `AttachThreadInput` | fails |
 | `WH_KEYBOARD_LL` | `SwitchToThisWindow` | fails |
-| `WH_KEYBOARD_LL` | inject a key tap (Alt or F22) first | works |
+| `WH_KEYBOARD_LL` | inject a key tap (Alt, F22 or `vkE8`) first | works |
 
-A process also keeps foreground rights from its launch until the next input, so a test
-right after startup passes misleadingly. **The keyboard hook alone does not grant the
-right, so M5 must choose an approach.**
+The rule is per process, so it doesn't matter that the UI thread makes the call. A hook
+only observes a key on its way to the foreground app, which is the process that received
+the input. A process also keeps foreground rights from its launch until the next input, so
+a test right after startup passes misleadingly.
+
+**We inject a tap of the unassigned key `vkE8` (`MaskKey`), always from the UI thread and
+never from the hook callback.** This relies on measured, undocumented behavior.
+
+- `Prepare()`: the controller calls it first when opening, while Alt is still held. With
+  Tab swallowed, the foreground app would see a lone Alt press and release, which opens
+  its menu. The tap in between prevents that.
+- `Activate()`: taps again right before `SetForegroundWindow`, because releasing Alt was
+  input to another process, which ended the right from the first tap.
 
 ## State machine
 
@@ -228,10 +239,10 @@ Edge cases:
 
 ```
 User            Hook thread            UI thread
- │ Alt down  ──► altDown = true
- │ Tab down  ──► post Activate ───────► snapshot, Show, select [1]
+ │ Alt down  ──► (passes through)
+ │ Tab down  ──► post Activate ───────► mask key, snapshot, Show, select [1]
  │ Tab down  ──► post Next ───────────► select [2]
- │ Alt up    ──► post Confirm ────────► Hide, SetForegroundWindow([2])
+ │ Alt up    ──► post Confirm ────────► Hide, mask key, SetForegroundWindow([2])
                                          switcherActive = false
                                          (later) EVENT_SYSTEM_FOREGROUND
                                          → tracker moves [2] to MRU front

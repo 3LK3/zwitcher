@@ -29,9 +29,6 @@ public sealed class MessageWindow : IDisposable
         _source.AddHook(WndProc);
     }
 
-    /// <summary>Raised with the hotkey id. Temporary: goes away with the debug hotkeys in M5.</summary>
-    public event Action<int>? HotkeyPressed;
-
     public nint Handle => _source.Handle;
 
     public void Dispose()
@@ -45,11 +42,6 @@ public sealed class MessageWindow : IDisposable
         if (message == CommandPoster.WmSwitcherCommand)
         {
             _onCommand((SwitcherCommand)wParam);
-            handled = true;
-        }
-        else if (message == GlobalHotkey.WmHotkey)
-        {
-            HotkeyPressed?.Invoke((int)wParam);
             handled = true;
         }
 

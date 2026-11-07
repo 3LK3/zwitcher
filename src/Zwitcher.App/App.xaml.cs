@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Interop;
-using Zwitcher.App.Debugging;
 using Zwitcher.Core;
 using Zwitcher.Core.Activation;
 using Zwitcher.Core.Input;
@@ -21,7 +20,7 @@ public sealed partial class App : Application
     private OverlayWindow? _overlay;
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
-    private DebugHotkeys? _hotkeys;
+    private KeyboardHook? _hook;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -60,15 +59,18 @@ public sealed partial class App : Application
         _tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker);
 #endif
 
-        // Last, like the keyboard hook that will replace it: everything else must be ready.
-        var hotkeys = new DebugHotkeys(_messageWindow, poster, state);
-        _overlay.IsVisibleChanged += (_, args) => hotkeys.SetOverlayOpen((bool)args.NewValue);
-        _hotkeys = hotkeys;
+        // Last: commands may arrive from here on, so everything else must be ready.
+        var hook = new KeyboardHook(poster, state);
+        hook.Start();
+        Debug.WriteLine($"Keyboard hook installed: {hook.IsInstalled}");
+        _tray.EnabledChanged += (_, enabled) => hook.Enabled = enabled;
+        _hook = hook;
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _hotkeys?.Dispose();
+        // The hook goes first, so that no new commands arrive during shutdown.
+        _hook?.Dispose();
         _tray?.Dispose();
         _messageWindow?.Dispose();
         _instanceGuard?.Dispose();

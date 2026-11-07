@@ -2,12 +2,15 @@ using System.Diagnostics;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
+using Zwitcher.Core.Interop;
 
 namespace Zwitcher.Core.Activation;
 
 /// <summary>Brings a window to the foreground. A window that has closed just fails quietly.</summary>
 public sealed class WindowActivator : IWindowActivator
 {
+    public void Prepare() => MaskKey.Tap();
+
     public void Activate(nint handle)
     {
         var window = (HWND)handle;
@@ -23,6 +26,8 @@ public sealed class WindowActivator : IWindowActivator
         var popup = PInvoke.GetLastActivePopup(window);
         var target = PInvoke.IsWindowVisible(popup) ? popup : window;
 
+        // Releasing Alt was input to another process, which ended the right from Prepare.
+        MaskKey.Tap();
         if (!PInvoke.SetForegroundWindow(target))
         {
             Debug.WriteLine($"SetForegroundWindow failed for {handle}");
