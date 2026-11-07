@@ -30,7 +30,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - Single-instance guard (named mutex). A second launch exits immediately.
 - `app.manifest` with PerMonitorV2 DPI awareness.
 - `Directory.Build.props`, CSharpier tool manifest, empty `NativeMethods.txt`.
-- CI (GitLab CI, hosted runner `saas-windows-medium-amd64`, SDK from `global.json`):
+- CI (GitHub Actions, `windows-latest` runner, SDK from `global.json`):
   restore, `csharpier check`, build, test.
 
 **Done when**
@@ -38,7 +38,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 - *About* shows the version.
 - A second instance doesn't start.
 - Task Manager's DPI awareness column shows Per-Monitor (v2).
-- The pipeline passes.
+- The workflow passes.
 
 ---
 
@@ -238,10 +238,10 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 **Scope**
 - Logging to a rolling file, **never from the hook callback**. Unhandled
   exceptions are logged, and the hook is uninstalled cleanly.
-- Publish: self-contained, single-file `win-x64` build, zipped. GitLab CI release on tag.
+- Publish: self-contained, single-file `win-x64` build, zipped. GitHub Actions release on tag.
 - Versioning (`<Version>` in `Directory.Build.props`, SemVer). The About dialog
   shows the version.
-- README: features, install, known limitations (elevated windows, is that even a thing?), build
+- README: features, install, known limitations (elevated windows), build
   instructions. CHANGELOG.
 
 **Done when**

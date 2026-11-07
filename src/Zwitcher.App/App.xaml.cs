@@ -1,9 +1,11 @@
 using System.Diagnostics;
-using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using Zwitcher.Core;
 using Zwitcher.Core.Activation;
+using Zwitcher.Core.Diagnostics;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Interop;
 using Zwitcher.Core.Windows;
@@ -23,6 +25,7 @@ public sealed partial class App : Application
     private TrayIcon? _tray;
     private KeyboardHook? _hook;
     private SettingsWindow? _settingsWindow;
+    private RollingFileTraceListener? _log;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -35,9 +38,10 @@ public sealed partial class App : Application
             return;
         }
 
-#if DEBUG
-        StartDebugLog();
-#endif
+        StartLog();
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            Trace.TraceWarning($"Unobserved task exception: {args.Exception}");
 
         var settings = new SettingsService(new JsonSettingsStore(JsonSettingsStore.DefaultPath));
         var startup = StartupRegistration.ForCurrentUser(Environment.ProcessPath!);
@@ -87,7 +91,14 @@ public sealed partial class App : Application
         // Last: commands may arrive from here on, so everything else must be ready.
         var hook = new KeyboardHook(poster, state) { Enabled = settings.Current.Enabled };
         hook.Start();
-        Debug.WriteLine($"Keyboard hook installed: {hook.IsInstalled}");
+        if (hook.IsInstalled)
+        {
+            Trace.TraceInformation("Keyboard hook installed: True");
+        }
+        else
+        {
+            Trace.TraceError("Keyboard hook installed: False, the native Alt+Tab stays active");
+        }
         _hook = hook;
 
         settings.Changed += current =>
@@ -96,6 +107,10 @@ public sealed partial class App : Application
             overlay.ApplySettings(current.ShowOn, current.Layout);
             tray.SetEnabled(current.Enabled);
         };
+
+#if DEBUG
+        StartCrashTest(e.Args);
+#endif
     }
 
     private void ShowSettings(SettingsService settings, StartupRegistration startup)
@@ -120,17 +135,74 @@ public sealed partial class App : Application
         _tray?.Dispose();
         _messageWindow?.Dispose();
         _instanceGuard?.Dispose();
+        if (_log is not null)
+        {
+            Trace.TraceInformation("Exited");
+            Trace.Listeners.Remove(_log);
+            _log.Dispose();
+        }
+
         base.OnExit(e);
     }
 
-#if DEBUG
-    private static void StartDebugLog()
+    private void StartLog()
     {
-        // A WinExe has no console, so Debug output would need an attached debugger.
-        var path = Path.Combine(Path.GetTempPath(), "Zwitcher-debug.log");
-        Trace.Listeners.Add(new TextWriterTraceListener(path));
-        Trace.AutoFlush = true;
-        Debug.WriteLine($"--- started {DateTime.Now:O}");
+        // After the single-instance check, so that a second launch can't write to the same file.
+        _log = new RollingFileTraceListener(RollingFileTraceListener.DefaultDirectory);
+        Trace.Listeners.Add(_log);
+        Trace.TraceInformation(
+            $"Zwitcher {Version()} started on Windows {Environment.OSVersion.Version}, exe {Environment.ProcessPath}"
+        );
+    }
+
+    /// <summary>
+    /// Runs for an unhandled exception on any thread; WPF passes unhandled UI-thread exceptions
+    /// on to here. Zwitcher still exits: carrying on in an unknown state is worse for a
+    /// switcher than falling back to the native Alt+Tab. Windows would remove the hook with
+    /// the process anyway, but unhooking first means no keystroke waits on a dying process.
+    /// </summary>
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        Trace.TraceError($"Unhandled exception, Zwitcher exits: {e.ExceptionObject}");
+        _hook?.Dispose();
+
+        // NotifyIcon belongs to the UI thread. From another thread, the icon stays as a ghost
+        // until the mouse moves over it.
+        if (Dispatcher.CheckAccess())
+        {
+            _tray?.Dispose();
+        }
+    }
+
+#if DEBUG
+    /// <summary>`--crash-test=ui` or `--crash-test=pool` throws shortly after startup.</summary>
+    private void StartCrashTest(string[] args)
+    {
+        var target = args.FirstOrDefault(a =>
+                a.StartsWith("--crash-test=", StringComparison.Ordinal)
+            )
+            ?.Split('=')[1];
+        if (target is null)
+        {
+            return;
+        }
+
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (target == "pool")
+            {
+                ThreadPool.QueueUserWorkItem(_ =>
+                    throw new InvalidOperationException("Crash test on a pool thread")
+                );
+            }
+            else
+            {
+                throw new InvalidOperationException("Crash test on the UI thread");
+            }
+        };
+        timer.Start();
     }
 
     private static void PostTestCommands(CommandPoster poster, SwitcherState state)
@@ -156,7 +228,21 @@ public sealed partial class App : Application
 
     private static void ShowAbout()
     {
-        var version = typeof(App).Assembly.GetName().Version?.ToString(3);
-        MessageBox.Show($"Zwitcher {version}", "About Zwitcher");
+        MessageBox.Show(
+            $"Zwitcher {Version()}\n\nLogs: {RollingFileTraceListener.DefaultDirectory}",
+            "About Zwitcher"
+        );
+    }
+
+    /// <summary>SemVer plus the short commit, e.g. 1.0.0+abc1234. The SDK appends the commit.</summary>
+    private static string Version()
+    {
+        var version =
+            typeof(App)
+                .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+            ?? "unknown";
+        var plus = version.IndexOf('+');
+        return plus >= 0 && version.Length > plus + 8 ? version[..(plus + 8)] : version;
     }
 }

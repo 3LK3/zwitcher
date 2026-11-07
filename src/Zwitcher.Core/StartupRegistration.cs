@@ -39,7 +39,7 @@ public sealed class StartupRegistration(string keyPath, string valueName, string
         catch (Exception e)
             when (e is IOException or UnauthorizedAccessException or SecurityException)
         {
-            Debug.WriteLine($"Changing the Run key failed: {e.Message}");
+            Trace.TraceWarning($"Changing the Run key failed: {e.Message}");
             return false;
         }
     }

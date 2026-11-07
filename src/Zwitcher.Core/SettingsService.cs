@@ -29,7 +29,7 @@ public sealed class SettingsService(ISettingsStore store)
         // The setting still applies until the next start, which beats losing the change.
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Debug.WriteLine($"Saving settings failed: {e.Message}");
+            Trace.TraceWarning($"Saving settings failed: {e.Message}");
         }
 
         Changed?.Invoke(updated);

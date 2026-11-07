@@ -30,7 +30,7 @@ public sealed class WindowActivator : IWindowActivator
         MaskKey.Tap();
         if (!PInvoke.SetForegroundWindow(target))
         {
-            Debug.WriteLine($"SetForegroundWindow failed for {handle}");
+            Trace.TraceWarning($"SetForegroundWindow failed for {handle}");
         }
     }
 }

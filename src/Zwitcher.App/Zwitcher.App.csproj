@@ -9,6 +9,10 @@
              WPF app, so the manifest sets DPI awareness. -->
         <NoWarn>$(NoWarn);WFO0003</NoWarn>
         <ApplicationIcon>Assets\zwitcher.ico</ApplicationIcon>
+        <!-- The exe name and file description are what Task Manager and Startup apps show. -->
+        <AssemblyName>Zwitcher</AssemblyName>
+        <AssemblyTitle>Zwitcher</AssemblyTitle>
+        <Product>Zwitcher</Product>
     </PropertyGroup>
 
     <ItemGroup>

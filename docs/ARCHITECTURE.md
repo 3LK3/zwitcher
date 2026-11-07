@@ -251,6 +251,19 @@ is logged, and the setting still applies until the next start.
 Start with Windows isn't in `Settings`. `StartupRegistration` reads and writes the HKCU `Run`
 key directly, so the two can't disagree. At startup it follows the exe if it moved.
 
+### Logging (Core/Diagnostics)
+Code logs through `System.Diagnostics.Trace` (`TraceInformation`, `TraceWarning`,
+`TraceError`), so Core needs no logger of its own and no static state. At startup the App adds
+a `RollingFileTraceListener` writing to `%LocalAppData%\Zwitcher\logs\zwitcher.log`. It rolls
+over at 1 MB, keeps three old files, and swallows its own write errors: logging must never
+take the app down.
+
+- **Never from the hook callback.** A file write there would delay every keystroke.
+- Trace serializes listener calls (`Trace.UseGlobalLock`), so the icon pool thread may log
+  too. This lock is inside the BCL and only on the logging path, not in our state.
+- `Debug.WriteLine` lands in the same file in Debug builds and is compiled out of Release.
+  Timing lines on the show path use it, so Release does no I/O there.
+
 ## State machine
 
 ```
@@ -316,6 +329,15 @@ Startup (App):
 Shutdown is the reverse: hook first (so no new commands arrive), then WinEvent
 hooks, then windows.
 
+The log starts right after step 1, so that a second instance can't write to the same file.
+
+**Crashes:** `AppDomain.UnhandledException` covers every thread; WPF passes unhandled
+UI-thread exceptions on to it. The handler logs the exception, disposes the hook, and removes
+the tray icon if it runs on the UI thread. Then the process dies. Carrying on in an unknown
+state is worse for a switcher than falling back to the native Alt+Tab. Windows would remove
+the hook with the process anyway, but unhooking first means no keystroke waits on a dying
+process. Unobserved task exceptions are only logged.
+
 ## Project mapping
 
 | Component | Project / folder |
@@ -325,6 +347,7 @@ hooks, then windows.
 | `WindowActivator` | `Zwitcher.Core/Activation` |
 | `SwitcherController`, `IOverlayView`, `ISwitcherState`, `SingleInstanceGuard` | `Zwitcher.Core` |
 | CsWin32 wrappers, `NativeMethods.txt` | `Zwitcher.Core/Interop` |
+| `RollingFileTraceListener` | `Zwitcher.Core/Diagnostics` |
 | `Settings`, `ISettingsStore`, `JsonSettingsStore`, `SettingsService`, `StartupRegistration` | `Zwitcher.Core` |
 | `OverlayWindow` (implements `IOverlayView`), `SettingsWindow`, message window, tray | `Zwitcher.App` |
 
@@ -345,3 +368,12 @@ hooks, then windows.
   run elevated, or to use `uiAccess=true` (which requires a signed exe installed
   under Program Files). Out of scope for now.
 - Win+Tab and Task View are untouched.
+
+## Release
+
+`build/publish.ps1` publishes a self-contained, single-file `win-x64` `Zwitcher.exe`
+(WPF's native DLLs included through `IncludeNativeLibrariesForSelfExtract`, no trimming,
+which WPF doesn't support) and zips it to `artifacts/`. The version lives only in
+`Directory.Build.props`. On a `v*` tag, the release workflow runs `build/release.ps1`, which
+fails unless the tag is `v<Version>`, and creates the GitHub release with the zip and that
+version's CHANGELOG section.

@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v1.0.0. The tag must match <Version> in Directory.Build.props.
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      # Creating a release and uploading the zip.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet tool restore
+      - run: dotnet csharpier check .
+      - run: dotnet build -warnaserror
+      - run: dotnet test --no-build
+
+      # The tag goes through an environment variable, not straight into the script text.
+      - run: ./build/release.ps1 -Tag $env:TAG
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+
+      # gh comes with the runner, so no third-party action is needed.
+      - run: gh release create $env:TAG (Get-ChildItem artifacts/*.zip).FullName --title "Zwitcher $env:TAG" --notes-file artifacts/release-notes.md
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}

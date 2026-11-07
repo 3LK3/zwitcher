@@ -65,7 +65,12 @@ public sealed class KeyboardHook : IDisposable
         if (_thread.IsAlive)
         {
             PInvoke.PostThreadMessage(_threadId, PInvoke.WM_QUIT, 0, 0);
-            _thread.Join(JoinTimeoutMilliseconds);
+
+            // A crash handler can run on the hook thread itself, which can't wait for itself.
+            if (Thread.CurrentThread != _thread)
+            {
+                _thread.Join(JoinTimeoutMilliseconds);
+            }
         }
 
         _started.Dispose();
