@@ -91,6 +91,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M3 – Overlay view (debug hotkey)
 
+✓ DONE
+
 **Goal:** The real overlay, shown without touching Alt+Tab.
 
 **Scope**
