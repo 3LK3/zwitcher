@@ -212,6 +212,8 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 
 ## M8 – Settings and startup
 
+✓ DONE
+
 **Goal:** Configurable behavior, and the foundation for future features.
 
 **Scope**
@@ -236,11 +238,10 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 **Scope**
 - Logging to a rolling file, **never from the hook callback**. Unhandled
   exceptions are logged, and the hook is uninstalled cleanly.
-- Publish: self-contained, single-file `win-x64` build (plus `win-arm64` if
-  wanted), zipped. GitLab CI release on tag.
+- Publish: self-contained, single-file `win-x64` build, zipped. GitLab CI release on tag.
 - Versioning (`<Version>` in `Directory.Build.props`, SemVer). The About dialog
   shows the version.
-- README: features, install, known limitations (elevated windows), build
+- README: features, install, known limitations (elevated windows, is that even a thing?), build
   instructions. CHANGELOG.
 
 **Done when**
