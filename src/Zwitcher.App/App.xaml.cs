@@ -22,6 +22,7 @@ public sealed partial class App : Application
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
     private KeyboardHook? _hook;
+    private SettingsWindow? _settingsWindow;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -38,23 +39,33 @@ public sealed partial class App : Application
         StartDebugLog();
 #endif
 
+        var settings = new SettingsService(new JsonSettingsStore(JsonSettingsStore.DefaultPath));
+        var startup = StartupRegistration.ForCurrentUser(Environment.ProcessPath!);
+        startup.RepairPath();
+
         _windowEvents = new WinEventSource();
         var tracker = new WindowTracker(new Win32WindowQuery(), _windowEvents);
         tracker.Start();
 
         // Pre-create the overlay: build the HWND now but never call Show(), so later
         // show/hide is fast. EnsureHandle creates the native window without displaying it.
-        _overlay = new OverlayWindow();
-        new WindowInteropHelper(_overlay).EnsureHandle();
-        _overlay.WarmUp();
+        var overlay = new OverlayWindow();
+        overlay.ApplySettings(settings.Current.ShowOn, settings.Current.Layout);
+        new WindowInteropHelper(overlay).EnsureHandle();
+        overlay.WarmUp();
+        _overlay = overlay;
 
         var state = new SwitcherState();
         var controller = new SwitcherController(tracker, _overlay, new WindowActivator(), state);
         _messageWindow = new MessageWindow(controller.Handle);
 
-        _tray = new TrayIcon();
-        _tray.AboutRequested += (_, _) => ShowAbout();
-        _tray.ExitRequested += (_, _) => Shutdown();
+        var tray = new TrayIcon();
+        tray.SetEnabled(settings.Current.Enabled);
+        tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
+        tray.SettingsRequested += (_, _) => ShowSettings(settings, startup);
+        tray.AboutRequested += (_, _) => ShowAbout();
+        tray.ExitRequested += (_, _) => Shutdown();
+        _tray = tray;
 
         var poster = new CommandPoster(_messageWindow.Handle);
 
@@ -74,11 +85,31 @@ public sealed partial class App : Application
 #endif
 
         // Last: commands may arrive from here on, so everything else must be ready.
-        var hook = new KeyboardHook(poster, state);
+        var hook = new KeyboardHook(poster, state) { Enabled = settings.Current.Enabled };
         hook.Start();
         Debug.WriteLine($"Keyboard hook installed: {hook.IsInstalled}");
-        _tray.EnabledChanged += (_, enabled) => hook.Enabled = enabled;
         _hook = hook;
+
+        settings.Changed += current =>
+        {
+            hook.Enabled = current.Enabled;
+            overlay.ApplySettings(current.ShowOn, current.Layout);
+            tray.SetEnabled(current.Enabled);
+        };
+    }
+
+    private void ShowSettings(SettingsService settings, StartupRegistration startup)
+    {
+        if (_settingsWindow is { } open)
+        {
+            open.Activate();
+            return;
+        }
+
+        var window = new SettingsWindow(settings, startup);
+        window.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow = window;
+        window.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)

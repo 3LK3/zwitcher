@@ -11,6 +11,7 @@ public sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _icon;
     private readonly ContextMenuStrip _menu;
     private readonly Icon _image;
+    private readonly ToolStripMenuItem _enabled;
 
     public TrayIcon()
     {
@@ -27,9 +28,14 @@ public sealed class TrayIcon : IDisposable
             (_, _) => DumpWindowsRequested?.Invoke(this, EventArgs.Empty)
         );
 #endif
-        var enabled = new ToolStripMenuItem("Enabled") { Checked = true, CheckOnClick = true };
-        enabled.CheckedChanged += (_, _) => EnabledChanged?.Invoke(this, enabled.Checked);
-        _menu.Items.Add(enabled);
+        _enabled = new ToolStripMenuItem("Enabled") { Checked = true, CheckOnClick = true };
+        _enabled.CheckedChanged += (_, _) => EnabledChanged?.Invoke(this, _enabled.Checked);
+        _menu.Items.Add(_enabled);
+        _menu.Items.Add(
+            "Settings",
+            null,
+            (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty)
+        );
         _menu.Items.Add("About", null, (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty));
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
@@ -51,9 +57,13 @@ public sealed class TrayIcon : IDisposable
 
     public event EventHandler<bool>? EnabledChanged;
 
+    public event EventHandler? SettingsRequested;
+
     public event EventHandler? AboutRequested;
 
     public event EventHandler? ExitRequested;
+
+    public void SetEnabled(bool enabled) => _enabled.Checked = enabled;
 
     public void Dispose()
     {

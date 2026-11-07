@@ -217,7 +217,7 @@ Legend: **Goal** – what the milestone achieves · **Scope** – what to build 
 **Scope**
 - `Settings` record and `ISettingsStore` (JSON in `%AppData%\Zwitcher`), loaded at
   startup. Changes are applied on the UI thread.
-- Initial settings: enabled, start with Windows (HKCU `Run` key), show on
+- Initial settings: enabled, start with Windows (HKCU `Run` key, which stays the only source of truth for it), show on
   (primary monitor by default, or the monitor with the cursor or the foreground window), and the layout variant.
 - Simple settings window opened from the tray.
 - Layout made pluggable: `OverlayWindow` picks an item template / layout strategy

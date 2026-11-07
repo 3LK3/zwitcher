@@ -45,3 +45,5 @@ DeleteObject
 GetDC
 ReleaseDC
 GetDIBits
+MonitorFromWindow
+GetCursorPos

@@ -21,14 +21,34 @@ public static class OverlayNative
         );
     }
 
-    /// <summary>The primary monitor, which by definition has its origin at (0, 0).</summary>
-    public static unsafe MonitorArea GetPrimaryMonitor()
-    {
-        var monitor = PInvoke.MonitorFromPoint(
+    /// <summary>The monitor for the overlay. Falls back to the primary one.</summary>
+    public static MonitorArea GetMonitor(ShowOn showOn) =>
+        Describe(
+            showOn switch
+            {
+                ShowOn.CursorMonitor => FromCursor(),
+                ShowOn.ForegroundMonitor => PInvoke.MonitorFromWindow(
+                    PInvoke.GetForegroundWindow(),
+                    MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY
+                ),
+                _ => Primary(),
+            }
+        );
+
+    /// <summary>The primary monitor by definition has its origin at (0, 0).</summary>
+    private static HMONITOR Primary() =>
+        PInvoke.MonitorFromPoint(
             new System.Drawing.Point(0, 0),
             MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY
         );
 
+    private static HMONITOR FromCursor() =>
+        PInvoke.GetCursorPos(out var cursor)
+            ? PInvoke.MonitorFromPoint(cursor, MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY)
+            : Primary();
+
+    private static unsafe MonitorArea Describe(HMONITOR monitor)
+    {
         var info = new MONITORINFO { cbSize = (uint)sizeof(MONITORINFO) };
         PInvoke.GetMonitorInfo(monitor, ref info);
         // The analyzer assumes Windows 7, the default of net10.0-windows. We need Windows 10.

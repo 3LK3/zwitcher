@@ -118,9 +118,10 @@ call (a few milliseconds, once per open), then sorts by `MruList`. So titles and
 can't go stale, and a missed event costs order at worst, not a wrong list.
 
 - On startup: `EnumWindows` → filter → seeds `MruList` (z-order as the initial guess).
-- `WinEventSource` subscribes on the UI thread (`WINEVENT_OUTOFCONTEXT |
-  WINEVENT_SKIPOWNPROCESS`, only `OBJID_WINDOW` / `CHILDID_SELF`). Own-process events are
-  skipped, or showing the overlay would report a change.
+- `WinEventSource` subscribes on the UI thread (`WINEVENT_OUTOFCONTEXT`, only `OBJID_WINDOW`
+  / `CHILDID_SELF`). Our own process isn't skipped, because the settings window belongs in
+  the MRU list. Showing the overlay does report a change, which the controller finds
+  unchanged, at the cost of one snapshot per open.
   - `EVENT_SYSTEM_FOREGROUND`: move the window and its root owner to the front. A dialog
     isn't listed, so using it counts for its owner. Doesn't raise `WindowsChanged`, so rows
     don't reorder while tabbing.
@@ -177,7 +178,10 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
 
 - **Alt+Tab:** the window sets `WS_EX_TOOLWINDOW`, which keeps it out of native Alt+Tab
   and out of `WindowFilter`.
-- **Placement:** centered in the work area of the primary monitor. Position
+- **Layouts:** a layout is a set of XAML resources, `{name}Width`, `{name}Panel` and
+  `{name}Item`, picked by `OverlayLayout`. A new one needs those and an enum value, no
+  controller change. `Next` and `Prev` stay linear in every layout.
+- **Placement:** centered in the work area of the monitor from the *Show on* setting. Position
   and size are set in physical pixels with `SetWindowPos`, because WPF's `Left` and `Top`
   are unreliable across monitors with different DPI.
 - **Icons:** `Show` only uses cached icons. Missing ones load afterwards, one
@@ -233,6 +237,19 @@ never from the hook callback.** This relies on measured, undocumented behavior.
   its menu. The tap in between prevents that.
 - `Activate()`: taps again right before `SetForegroundWindow`, because releasing Alt was
   input to another process, which ended the right from the first tap.
+
+### Settings (Core, UI in App)
+`SettingsService` holds the current `Settings` record on the UI thread. `Update` saves through
+`ISettingsStore` and raises `Changed`, and one handler in the App applies the result to the
+hook, the overlay and the tray. An update that changes nothing does nothing, so controls
+showing the same setting can't echo each other.
+
+`JsonSettingsStore` uses `%AppData%\Zwitcher\settings.json`. A missing or damaged file gives
+the defaults, because a switcher must not refuse to start over a settings file. A failed save
+is logged, and the setting still applies until the next start.
+
+Start with Windows isn't in `Settings`. `StartupRegistration` reads and writes the HKCU `Run`
+key directly, so the two can't disagree. At startup it follows the exe if it moved.
 
 ## State machine
 
@@ -290,10 +307,11 @@ User            Hook thread            UI thread
 
 Startup (App):
 1. Single-instance check (named mutex).
-2. Create the `WinEventSource` and the `WindowTracker`, and do the initial enumeration.
-3. Pre-create the overlay window hidden (create the HWND, so first show is instant).
-4. Create the `SwitcherController` and the message-only window on the UI thread.
-5. Start the `KeyboardHook` thread last.
+2. Load the settings and repair the `Run` entry if the exe moved.
+3. Create the `WinEventSource` and the `WindowTracker`, and do the initial enumeration.
+4. Pre-create the overlay window hidden (create the HWND, so first show is instant).
+5. Create the `SwitcherController` and the message-only window on the UI thread.
+6. Start the `KeyboardHook` thread last.
 
 Shutdown is the reverse: hook first (so no new commands arrive), then WinEvent
 hooks, then windows.
@@ -307,7 +325,8 @@ hooks, then windows.
 | `WindowActivator` | `Zwitcher.Core/Activation` |
 | `SwitcherController`, `IOverlayView`, `ISwitcherState`, `SingleInstanceGuard` | `Zwitcher.Core` |
 | CsWin32 wrappers, `NativeMethods.txt` | `Zwitcher.Core/Interop` |
-| `OverlayWindow` (implements `IOverlayView`), message window, tray | `Zwitcher.App` |
+| `Settings`, `ISettingsStore`, `JsonSettingsStore`, `SettingsService`, `StartupRegistration` | `Zwitcher.Core` |
+| `OverlayWindow` (implements `IOverlayView`), `SettingsWindow`, message window, tray | `Zwitcher.App` |
 
 ## Testing
 

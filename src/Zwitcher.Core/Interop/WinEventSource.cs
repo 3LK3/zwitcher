@@ -25,8 +25,9 @@ public sealed class WinEventSource : IWindowEventSource, IDisposable
     private const int ObjectIdWindow = 0;
     private const int ChildIdSelf = 0;
 
-    // Without skipping our own process, showing the overlay would itself report a change.
-    private const uint Flags = 0x0000 | 0x0002; // WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+    // WINEVENT_OUTOFCONTEXT. Our own process isn't skipped: the settings window has to be in the
+    // MRU list. Showing the overlay then reports a change, which the controller finds unchanged.
+    private const uint Flags = 0x0000;
 
     // Held in a field, or the GC would collect the delegate while native code still calls it.
     private readonly WINEVENTPROC _callback;

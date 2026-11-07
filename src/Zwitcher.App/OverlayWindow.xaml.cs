@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -15,7 +16,6 @@ namespace Zwitcher.App;
 /// </summary>
 public sealed partial class OverlayWindow : Window, IOverlayView
 {
-    private const double OverlayWidth = 480;
     private const double DefaultDpi = 96;
 
     // Of the work area. Longer lists scroll.
@@ -27,13 +27,29 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     private int _selected;
     private MonitorArea? _monitor;
     private bool _warmingUp;
+    private ShowOn _showOn;
+    private double _width;
 
     public OverlayWindow()
     {
         InitializeComponent();
+        var defaults = new Settings();
+        ApplySettings(defaults.ShowOn, defaults.Layout);
     }
 
     public event Action<int>? ItemClicked;
+
+    /// <summary>
+    /// Takes effect on the next open. A layout is a set of resources in the XAML, so a new one
+    /// needs no code here and no change in the controller.
+    /// </summary>
+    public void ApplySettings(ShowOn showOn, OverlayLayout layout)
+    {
+        _showOn = showOn;
+        _width = (double)FindResource($"{layout}Width");
+        Rows.ItemsPanel = (ItemsPanelTemplate)FindResource($"{layout}Panel");
+        Rows.ItemTemplate = (DataTemplate)FindResource($"{layout}Item");
+    }
 
     /// <summary>
     /// Shows the overlay once, invisibly, so that the first real open doesn't pay for JIT and
@@ -65,7 +81,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         EndWarmUp();
         _icons.KeepOnly(windows);
         SetRows(windows, selectedIndex);
-        MoveToPrimaryMonitor();
+        MoveToTargetMonitor();
         FitToRows();
         Scroller.ScrollToTop();
         Show();
@@ -149,9 +165,9 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     /// Works in physical pixels, because WPF's Left and Top are unreliable across monitors
     /// with different DPI. The first move lets WPF pick up the DPI of the target monitor.
     /// </summary>
-    private void MoveToPrimaryMonitor()
+    private void MoveToTargetMonitor()
     {
-        var monitor = OverlayNative.GetPrimaryMonitor();
+        var monitor = OverlayNative.GetMonitor(_showOn);
         OverlayNative.Move(
             new WindowInteropHelper(this).Handle,
             monitor.Left + (monitor.Width / 2),
@@ -171,9 +187,9 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         // Measure alone would return the old size: new rows only mark the items panel as dirty,
         // not its ancestors, so the call exits early. UpdateLayout processes them first.
         Panel.UpdateLayout();
-        Panel.Measure(new Size(OverlayWidth, double.PositiveInfinity));
+        Panel.Measure(new Size(_width, double.PositiveInfinity));
         var scale = monitor.Dpi / DefaultDpi;
-        Width = OverlayWidth;
+        Width = _width;
         Height = Math.Min(Panel.DesiredSize.Height, monitor.Height * MaxHeightShare / scale);
 
         var width = (int)Math.Ceiling(Width * scale);
