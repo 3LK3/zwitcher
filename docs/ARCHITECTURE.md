@@ -102,7 +102,7 @@ Alt key-up is always passed through so the system never sees a "stuck" Alt.
 
 The hook callback does nothing beyond this table. No logging, no allocation, no
 LINQ, no locks. The delegate is stored in a field so the GC can't collect it. The table
-itself is the pure function `HookDecisions.Decide`, so it's unit tested.
+itself is the pure function `HookDecisionTable.Decide`, so it's unit tested.
 
 ## Components
 
@@ -112,13 +112,13 @@ itself is the pure function `HookDecisions.Decide`, so it's unit tested.
 - `Dispose` posts `WM_QUIT` to its thread and unhooks.
 - `Enabled = false` passes every key through, so the native Alt+Tab works.
 
-### `WindowTracker` (Core/Windows)
+### `WindowTracker` (Core/WindowList)
 The tracker keeps the **order**, not the list. `Snapshot()` enumerates and filters on every
 call (a few milliseconds, once per open), then sorts by `MruList`. So titles and eligibility
 can't go stale, and a missed event costs order at worst, not a wrong list.
 
 - On startup: `EnumWindows` → filter → seeds `MruList` (z-order as the initial guess).
-- `WinEventSource` subscribes on the UI thread (`WINEVENT_OUTOFCONTEXT`, only `OBJID_WINDOW`
+- `Win32WindowEventSource` subscribes on the UI thread (`WINEVENT_OUTOFCONTEXT`, only `OBJID_WINDOW`
   / `CHILDID_SELF`). Our own process isn't skipped, because the settings window belongs in
   the MRU list. Showing the overlay does report a change, which the controller finds
   unchanged, at the cost of one snapshot per open.
@@ -154,15 +154,16 @@ For a hidden owner with a visible owned window, the article's text includes the 
 window but its pseudo-code doesn't. We follow the text.
 
 ```csharp
-sealed record WindowInfo(nint Handle, string Title, int ProcessId, string? AppId);
+sealed record WindowInfo(nint Handle, string Title, int ProcessId);
 ```
 
-### `SwitcherController` (Core)
+### `SwitcherController` (Core/Switching)
 State machine. See [State machine](#state-machine).
 Depends only on interfaces: `IWindowTracker`, `IOverlayView`, `IWindowActivator`,
-and the hook's `switcherActive` flag (via a small `ISwitcherState` interface).
+and the hook's `switcherActive` flag (`SwitcherActiveFlag`, a volatile bool with no
+interface: there is no behavior to fake). Its state is a `SwitcherMode` (`Idle` / `Active`).
 
-### `IOverlayView` (Core interface, implemented in App)
+### `IOverlayView` (Core/Switching, implemented in App/Overlay)
 ```csharp
 interface IOverlayView
 {
@@ -191,7 +192,7 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
   that are no longer listed. Lookup order: `WM_GETICON`, class icon, then a fallback icon,
   which a packaged app's icon replaces if there is one.
 - **Packaged icons:** the frame belongs to ApplicationFrameHost and has no icon, so
-  `PackagedIcons` goes through the AppUserModelID (`SHGetPropertyStoreForWindow`) and the
+  `PackagedAppIconReader` goes through the AppUserModelID (`SHGetPropertyStoreForWindow`) and the
   shell (`IShellItemImageFactory`). Measured at up to 150 ms cold and 11 ms warm, so it runs
   on a pool thread and posts the result back. This is the one exception to the two threads.
   Nothing may escape from that thread, because an uncaught exception ends the process.
@@ -204,7 +205,7 @@ only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#t
   the overlay opens under a resting cursor, so that could silently change the selection
   and a quick Alt+Tab would switch to the wrong window.
 
-### `IWindowActivator` (Core/Activation)
+### `IWindowActivator` (Core/Switching, implemented by `Win32WindowActivator`)
 Wraps bringing a window to the foreground: restore if minimized
 (`ShowWindowAsync(SW_RESTORE)`, so a hung window can't block the UI thread), then
 `SetForegroundWindow` on the last active popup if it's visible, else on the window.
@@ -238,13 +239,13 @@ never from the hook callback.** This relies on measured, undocumented behavior.
 - `Activate()`: taps again right before `SetForegroundWindow`, because releasing Alt was
   input to another process, which ended the right from the first tap.
 
-### Settings (Core, UI in App)
-`SettingsService` holds the current `Settings` record on the UI thread. `Update` saves through
-`ISettingsStore` and raises `Changed`, and one handler in the App applies the result to the
+### Settings (Core/Configuration, UI in App/SettingsUi)
+`SettingsStore` holds the current `Settings` record on the UI thread. `Update` saves through
+`ISettingsFile` and raises `Changed`, and one handler in the App applies the result to the
 hook, the overlay and the tray. An update that changes nothing does nothing, so controls
 showing the same setting can't echo each other.
 
-`JsonSettingsStore` uses `%AppData%\Zwitcher\settings.json`. A missing or damaged file gives
+`JsonSettingsFile` uses `%AppData%\Zwitcher\settings.json`. A missing or damaged file gives
 the defaults, because a switcher must not refuse to start over a settings file. A failed save
 is logged, and the setting still applies until the next start.
 
@@ -262,10 +263,11 @@ its close button. It's created for each opening and closed afterwards.
   or for an auto-hidden taskbar from the monitor edge nearest to the anchor. It pins the
   flyout, flush, to the work-area corner at the tray end of that edge: bottom-right for a
   bottom taskbar.
-- `FlyoutNative` reads the monitor and its DPI, and asks DWM for rounded corners (Windows 11).
+- `Monitors.AtPoint` reads the monitor and its DPI, and `Win32Window.RoundCorners` asks DWM
+  for rounded corners (Windows 11).
   The window is placed with `SetWindowPos` before `Show`, so it doesn't jump.
-- A click on the icon while the flyout is open first deactivates (closes) it. `App` ignores
-  icon clicks within 300 ms of a close, so the click toggles it off instead of reopening it.
+- A click on the icon while the flyout is open first deactivates (closes) it. `SettingsFlyoutOpener`
+  ignores icon clicks within 300 ms of a close, so the click toggles it off instead of reopening it.
 - Only this window uses WPF's Fluent theme (`ThemeMode.System`, light/dark like Windows). The
   overlay keeps its own look.
 
@@ -283,8 +285,8 @@ take the app down.
   Timing lines on the show path use it, so Release does no I/O there.
 
 ### Updates (App/Updates)
-`UpdateService` wraps Velopack's `UpdateManager` with a `GithubSource`. At startup (Release
-builds only) `App` runs one fire-and-forget check, so a slow network never delays the hook.
+`AppUpdater` wraps Velopack's `UpdateManager` with a `GithubSource`. At startup (Release
+builds only) `App` starts `UpdateFlow` once, fire-and-forget, so a slow network never delays the hook.
 It does nothing when the app wasn't installed by Velopack. If an update exists, `TrayIcon`
 shows a balloon and an *Update to x* menu item. Only a click downloads the update and calls
 `ApplyUpdatesAndRestart`; nothing is installed unasked. Not part of the controller or the
@@ -358,7 +360,7 @@ User            Hook thread            UI thread
 Startup (App):
 1. Single-instance check (named mutex).
 2. Load the settings and repair the `Run` entry if the exe moved.
-3. Create the `WinEventSource` and the `WindowTracker`, and do the initial enumeration.
+3. Create the `Win32WindowEventSource` and the `WindowTracker`, and do the initial enumeration.
 4. Pre-create the overlay window hidden (create the HWND, so first show is instant).
 5. Create the `SwitcherController` and the message-only window on the UI thread.
 6. Start the `KeyboardHook` thread last.
@@ -377,18 +379,42 @@ process. Unobserved task exceptions are only logged.
 
 ## Project mapping
 
+Folders are features; namespaces follow folders.
+
 | Component | Project / folder |
 |---|---|
-| `KeyboardHook`, `SwitcherCommand` | `Zwitcher.Core/Input` |
-| `WindowTracker`, `WindowFilter`, `IWindowQuery`, `WindowInfo` | `Zwitcher.Core/Windows` |
-| `WindowActivator` | `Zwitcher.Core/Activation` |
-| `SwitcherController`, `IOverlayView`, `ISwitcherState`, `SingleInstanceGuard` | `Zwitcher.Core` |
-| CsWin32 wrappers, `NativeMethods.txt` | `Zwitcher.Core/Interop` |
+| `SwitcherController`, `SwitcherMode`, `SwitcherCommand`, `SwitcherActiveFlag`, `IOverlayView`, `IWindowActivator`, `Win32WindowActivator` | `Zwitcher.Core/Switching` |
+| `KeyboardHook`, `HookDecisionTable`, `HookDecision`, `CommandPoster`, `MaskKey` | `Zwitcher.Core/Input` |
+| `WindowTracker`, `MruList`, `WindowFilter`, `WindowInfo`, `IWindowQuery` / `Win32WindowQuery`, `IWindowEventSource` / `Win32WindowEventSource` | `Zwitcher.Core/WindowList` |
+| `WindowIconReader`, `PackagedAppIconReader`, `PixelImage` | `Zwitcher.Core/Icons` |
+| `MonitorInfo`, `Monitors`, `PixelRect`, `PixelPoint`, `FlyoutPlacement`, `Win32Window` | `Zwitcher.Core/Screen` |
+| `Settings`, `ShowOn`, `OverlayLayout`, `SettingsStore`, `ISettingsFile` / `JsonSettingsFile`, `StartupRegistration` | `Zwitcher.Core/Configuration` |
 | `RollingFileTraceListener` | `Zwitcher.Core/Diagnostics` |
-| `Settings`, `ISettingsStore`, `JsonSettingsStore`, `SettingsService`, `StartupRegistration` | `Zwitcher.Core` |
-| `FlyoutPlacement`, `FlyoutNative` | `Zwitcher.Core` |
-| `OverlayWindow` (implements `IOverlayView`), `SettingsWindow` with `GeneralPage` and `AboutPage`, message window, tray | `Zwitcher.App` |
+| `NativeMethods.txt` (only) | `Zwitcher.Core/Interop` |
+| `SingleInstanceGuard` | `Zwitcher.Core` |
+| `App` (composition root), `AppInfo`, `MessageWindow` | `Zwitcher.App` |
+| `OverlayWindow` (implements `IOverlayView`), `OverlayRow`, `WindowIconCache` | `Zwitcher.App/Overlay` |
+| `SettingsWindow`, `GeneralPage`, `AboutPage`, `SettingsFlyoutOpener` | `Zwitcher.App/SettingsUi` |
+| `TrayIcon`, `SettingsRequest` | `Zwitcher.App/Tray` |
+| `AppUpdater`, `UpdateFlow` | `Zwitcher.App/Updates` |
+| `DebugCommands` (Debug builds only) | `Zwitcher.App/Debugging` |
 | Launcher (Velopack's main exe, starts the app via ShellExecute) | `Zwitcher.Launcher` |
+
+## Naming
+
+Names say what a type does; no `Service`, `Manager`, `Helper` or `Native` suffixes.
+
+| Pattern | Meaning | Example |
+|---|---|---|
+| `I<Name>` / `Win32<Name>` / `Fake<Name>` | port in Core / real Win32 implementation / test fake | `IWindowQuery`, `Win32WindowQuery`, `FakeWindowQuery` |
+| `Win32<Name>` (static) | Win32 calls without a port | `Win32Window` |
+| `...Controller` | makes decisions | `SwitcherController` |
+| `...Tracker`, `...Filter`, `...Placement`, `...Table` | pure logic | `WindowFilter`, `HookDecisionTable` |
+| `...Reader` | reads from Win32 or the shell | `WindowIconReader` |
+| `...Store` / `...File` | holds current state / persists it to a file | `SettingsStore`, `JsonSettingsFile` |
+| `...Window`, `...Page`, `...Row` | WPF UI | `OverlayWindow`, `GeneralPage`, `OverlayRow` |
+
+One public type per file; the file is named after the type.
 
 ## Testing
 

@@ -1,20 +1,28 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Threading;
 using Velopack;
+using Zwitcher.App.Overlay;
+using Zwitcher.App.Settings;
+using Zwitcher.App.Tray;
 using Zwitcher.Core;
-using Zwitcher.Core.Activation;
+using Zwitcher.Core.Configuration;
 using Zwitcher.Core.Diagnostics;
 using Zwitcher.Core.Input;
-using Zwitcher.Core.Interop;
-using Zwitcher.Core.Windows;
-#if !DEBUG
+using Zwitcher.Core.Switching;
+using Zwitcher.Core.WindowList;
+#if DEBUG
+using Zwitcher.App.Debugging;
+#else
 using Zwitcher.App.Updates;
 #endif
 
 namespace Zwitcher.App;
 
+/// <summary>
+/// The composition root: creates and wires the components in the order from ARCHITECTURE.md,
+/// and tears them down in reverse.
+/// </summary>
 public sealed partial class App : Application
 {
     // Local\ scopes the mutex to the session, like the keyboard hook: another signed-in user
@@ -22,16 +30,11 @@ public sealed partial class App : Application
     private const string InstanceMutexName = @"Local\Zwitcher-7f3c1a52-8e4b-4d06-9b1e-2c5d6a90f3e7";
 
     private SingleInstanceGuard? _instanceGuard;
-    private WinEventSource? _windowEvents;
-    private OverlayWindow? _overlay;
+    private RollingFileTraceListener? _log;
+    private Win32WindowEventSource? _windowEvents;
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
     private KeyboardHook? _hook;
-    private const long ReopenAfterCloseMs = 300;
-
-    private SettingsWindow? _settingsWindow;
-    private long _settingsClosedAt = long.MinValue / 2;
-    private RollingFileTraceListener? _log;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -50,65 +53,52 @@ public sealed partial class App : Application
         TaskScheduler.UnobservedTaskException += (_, args) =>
             Trace.TraceWarning($"Unobserved task exception: {args.Exception}");
 
-        var settings = new SettingsService(new JsonSettingsStore(JsonSettingsStore.DefaultPath));
+        var settings = new SettingsStore(new JsonSettingsFile(JsonSettingsFile.DefaultPath));
         var startup = StartupRegistration.ForCurrentUser(Environment.ProcessPath!);
         startup.RepairPath();
 
-        _windowEvents = new WinEventSource();
+        _windowEvents = new Win32WindowEventSource();
         var tracker = new WindowTracker(new Win32WindowQuery(), _windowEvents);
         tracker.Start();
 
-        // Pre-create the overlay: build the HWND now but never call Show(), so later
-        // show/hide is fast. EnsureHandle creates the native window without displaying it.
-        var overlay = new OverlayWindow();
-        overlay.ApplySettings(settings.Current.ShowOn, settings.Current.Layout);
-        new WindowInteropHelper(overlay).EnsureHandle();
-        overlay.WarmUp();
-        _overlay = overlay;
+        var overlay = CreateOverlay(settings.Current);
 
-        var state = new SwitcherState();
-        var controller = new SwitcherController(tracker, _overlay, new WindowActivator(), state);
+        var activeFlag = new SwitcherActiveFlag();
+        var controller = new SwitcherController(
+            tracker,
+            overlay,
+            new Win32WindowActivator(),
+            activeFlag
+        );
         _messageWindow = new MessageWindow(controller.Handle);
-
-        var tray = new TrayIcon();
-        tray.SetEnabled(settings.Current.Enabled);
-        tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
-        tray.SettingsRequested += (_, request) => ShowSettings(settings, startup, request);
-        tray.ExitRequested += (_, _) => Shutdown();
-        _tray = tray;
-
-#if !DEBUG
-        _ = CheckForUpdateAsync(tray);
-#endif
-
         var poster = new CommandPoster(_messageWindow.Handle);
 
         // Posted, not called: WinEvents can arrive during any message pumping, so the controller
         // could be in the middle of something. Only while active, so idle costs nothing.
         tracker.WindowsChanged += () =>
         {
-            if (state.IsActive)
+            if (activeFlag.IsSet)
             {
                 poster.Post(SwitcherCommand.WindowsChanged);
             }
         };
 
+        var settingsFlyout = new SettingsFlyoutOpener(settings, startup);
+        var tray = new TrayIcon();
+        tray.SetEnabled(settings.Current.Enabled);
+        tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
+        tray.SettingsRequested += (_, request) => settingsFlyout.Open(request);
+        tray.ExitRequested += (_, _) => Shutdown();
+        _tray = tray;
+
 #if DEBUG
-        _tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, state);
-        _tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker);
+        DebugCommands.Attach(tray, poster, activeFlag, tracker);
+#else
+        _ = new UpdateFlow(tray).RunAsync();
 #endif
 
         // Last: commands may arrive from here on, so everything else must be ready.
-        var hook = new KeyboardHook(poster, state) { Enabled = settings.Current.Enabled };
-        hook.Start();
-        if (hook.IsInstalled)
-        {
-            Trace.TraceInformation("Keyboard hook installed: True");
-        }
-        else
-        {
-            Trace.TraceError("Keyboard hook installed: False, the native Alt+Tab stays active");
-        }
+        var hook = StartHook(poster, activeFlag, settings.Current.Enabled);
         _hook = hook;
 
         settings.Changed += current =>
@@ -119,82 +109,8 @@ public sealed partial class App : Application
         };
 
 #if DEBUG
-        StartCrashTest(e.Args);
+        DebugCommands.StartCrashTest(e.Args);
 #endif
-    }
-
-#if !DEBUG
-    // Fire-and-forget on purpose: a slow network must never delay the hook going live.
-    // Resumes on the UI thread (WPF sync context), so touching the tray is safe.
-    private async Task CheckForUpdateAsync(TrayIcon tray)
-    {
-        try
-        {
-            var service = new UpdateService();
-            var update = await service.CheckAsync();
-            Trace.TraceInformation(
-                $"Update check: {update?.TargetFullRelease.Version.ToString() ?? "none"}"
-            );
-            if (update is null)
-            {
-                return;
-            }
-
-            tray.UpdateRequested += async (_, _) =>
-            {
-                tray.SetUpdateBusy("Downloading update...");
-                try
-                {
-                    await service.DownloadAndApplyAsync(update);
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceError($"Update failed: {ex}");
-                    tray.SetUpdateRetry("Update failed, retry");
-                }
-            };
-            tray.SetUpdateAvailable(update.TargetFullRelease.Version.ToString());
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceWarning($"Update check failed: {ex}");
-        }
-    }
-#endif
-
-    private void ShowSettings(
-        SettingsService settings,
-        StartupRegistration startup,
-        SettingsRequest request
-    )
-    {
-        if (_settingsWindow is { } open)
-        {
-            open.ShowPage(request.Page);
-            open.Activate();
-            return;
-        }
-
-        // Clicking the icon while the flyout is open first deactivates the flyout, which closes
-        // it, and then delivers the click. Without this, the click would reopen it right away
-        // instead of toggling it off, unlike the system flyouts.
-        if (
-            request.FromIconClick
-            && Environment.TickCount64 - _settingsClosedAt < ReopenAfterCloseMs
-        )
-        {
-            return;
-        }
-
-        var window = new SettingsWindow(settings, startup);
-        window.Closed += (_, _) =>
-        {
-            _settingsWindow = null;
-            _settingsClosedAt = Environment.TickCount64;
-        };
-        _settingsWindow = window;
-        window.ShowPage(request.Page);
-        window.ShowAt(request.AnchorX, request.AnchorY);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -226,6 +142,39 @@ public sealed partial class App : Application
     }
 
     /// <summary>
+    /// Builds the HWND now but never shows it for real, so later show/hide is fast.
+    /// EnsureHandle creates the native window without displaying it.
+    /// </summary>
+    private static OverlayWindow CreateOverlay(Core.Configuration.Settings settings)
+    {
+        var overlay = new OverlayWindow();
+        overlay.ApplySettings(settings.ShowOn, settings.Layout);
+        new WindowInteropHelper(overlay).EnsureHandle();
+        overlay.WarmUp();
+        return overlay;
+    }
+
+    private static KeyboardHook StartHook(
+        CommandPoster poster,
+        SwitcherActiveFlag activeFlag,
+        bool enabled
+    )
+    {
+        var hook = new KeyboardHook(poster, activeFlag) { Enabled = enabled };
+        hook.Start();
+        if (hook.IsInstalled)
+        {
+            Trace.TraceInformation("Keyboard hook installed: True");
+        }
+        else
+        {
+            Trace.TraceError("Keyboard hook installed: False, the native Alt+Tab stays active");
+        }
+
+        return hook;
+    }
+
+    /// <summary>
     /// Runs for an unhandled exception on any thread; WPF passes unhandled UI-thread exceptions
     /// on to here. Zwitcher still exits: carrying on in an unknown state is worse for a
     /// switcher than falling back to the native Alt+Tab. Windows would remove the hook with
@@ -243,58 +192,6 @@ public sealed partial class App : Application
             _tray?.Dispose();
         }
     }
-
-#if DEBUG
-    /// <summary>`--crash-test=ui` or `--crash-test=pool` throws shortly after startup.</summary>
-    private void StartCrashTest(string[] args)
-    {
-        var target = args.FirstOrDefault(a =>
-                a.StartsWith("--crash-test=", StringComparison.Ordinal)
-            )
-            ?.Split('=')[1];
-        if (target is null)
-        {
-            return;
-        }
-
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            if (target == "pool")
-            {
-                ThreadPool.QueueUserWorkItem(_ =>
-                    throw new InvalidOperationException("Crash test on a pool thread")
-                );
-            }
-            else
-            {
-                throw new InvalidOperationException("Crash test on the UI thread");
-            }
-        };
-        timer.Start();
-    }
-
-    private static void PostTestCommands(CommandPoster poster, SwitcherState state)
-    {
-        // The hook sets the flag itself when it posts an activate command.
-        state.IsActive = true;
-        poster.Post(SwitcherCommand.Activate);
-        poster.Post(SwitcherCommand.Next);
-        poster.Post(SwitcherCommand.Next);
-        poster.Post(SwitcherCommand.Confirm);
-    }
-
-    private static void DumpWindows(IWindowTracker tracker)
-    {
-        var windows = tracker.Snapshot();
-        Debug.WriteLine($"--- {windows.Count} windows");
-        foreach (var window in windows)
-        {
-            Debug.WriteLine($"{window.Handle} pid={window.ProcessId} \"{window.Title}\"");
-        }
-    }
-#endif
 
     [STAThread]
     private static void Main(string[] args)

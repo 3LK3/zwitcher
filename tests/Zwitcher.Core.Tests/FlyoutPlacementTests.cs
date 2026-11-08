@@ -1,4 +1,4 @@
-using Zwitcher.Core.Windows;
+using Zwitcher.Core.Screen;
 
 namespace Zwitcher.Core.Tests;
 

@@ -1,7 +1,6 @@
-using Zwitcher.Core.Activation;
-using Zwitcher.Core.Input;
-using Zwitcher.Core.Windows;
-using static Zwitcher.Core.Input.SwitcherCommand;
+using Zwitcher.Core.Switching;
+using Zwitcher.Core.WindowList;
+using static Zwitcher.Core.Switching.SwitcherCommand;
 
 namespace Zwitcher.Core.Tests;
 
@@ -9,16 +8,16 @@ public sealed class SwitcherControllerTests
 {
     private readonly FakeView _view = new();
     private readonly FakeActivator _activator = new();
-    private readonly FakeState _state = new() { IsActive = true };
+    private readonly SwitcherActiveFlag _activeFlag = new() { IsSet = true };
     private readonly FakeTracker _tracker = new();
 
-    private static WindowInfo Window(int index) => new(100 + index, $"Window {index}", index, null);
+    private static WindowInfo Window(int index) => new(100 + index, $"Window {index}", index);
 
     private SwitcherController CreateController(int windowCount)
     {
         _tracker.Windows = [.. Enumerable.Range(0, windowCount).Select(Window)];
 
-        return new SwitcherController(_tracker, _view, _activator, _state);
+        return new SwitcherController(_tracker, _view, _activator, _activeFlag);
     }
 
     private static void Send(SwitcherController controller, params SwitcherCommand[] commands)
@@ -122,7 +121,7 @@ public sealed class SwitcherControllerTests
 
         Assert.Equal("Hide", _view.Calls[^1]);
         Assert.Empty(_activator.Activated);
-        Assert.False(_state.IsActive);
+        Assert.False(_activeFlag.IsSet);
     }
 
     [Theory]
@@ -136,7 +135,7 @@ public sealed class SwitcherControllerTests
 
         Assert.Empty(_view.Calls);
         Assert.Empty(_activator.Activated);
-        Assert.False(_state.IsActive);
+        Assert.False(_activeFlag.IsSet);
     }
 
     [Theory]
@@ -192,10 +191,10 @@ public sealed class SwitcherControllerTests
         var controller = CreateController(3);
 
         Send(controller, Activate);
-        Assert.True(_state.IsActive);
+        Assert.True(_activeFlag.IsSet);
 
         Send(controller, Confirm);
-        Assert.False(_state.IsActive);
+        Assert.False(_activeFlag.IsSet);
     }
 
     [Fact]
@@ -208,7 +207,7 @@ public sealed class SwitcherControllerTests
 
         Assert.Equal("Hide", _view.Calls[^1]);
         Assert.Equal([103], _activator.Activated);
-        Assert.False(_state.IsActive);
+        Assert.False(_activeFlag.IsSet);
     }
 
     [Fact]
@@ -366,7 +365,7 @@ public sealed class SwitcherControllerTests
 
         Assert.Equal("Hide", _view.Calls[^1]);
         Assert.Empty(_activator.Activated);
-        Assert.False(_state.IsActive);
+        Assert.False(_activeFlag.IsSet);
     }
 
     [Fact]
@@ -399,11 +398,6 @@ public sealed class SwitcherControllerTests
         public void Prepare() => PrepareCount++;
 
         public void Activate(nint handle) => Activated.Add(handle);
-    }
-
-    private sealed class FakeState : ISwitcherState
-    {
-        public bool IsActive { get; set; }
     }
 
     private sealed class FakeView : IOverlayView

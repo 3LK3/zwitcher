@@ -1,6 +1,6 @@
 using System.Windows.Interop;
 using Zwitcher.Core.Input;
-using Zwitcher.Core.Interop;
+using Zwitcher.Core.Switching;
 
 namespace Zwitcher.App;
 

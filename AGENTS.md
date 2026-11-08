@@ -26,17 +26,29 @@ Windows only. Target: Windows 10 22H2+ and Windows 11.
 ## Layout
 
 ```
-src/Zwitcher.App/          WPF exe: OverlayWindow (IOverlayView), message window,
-                           tray icon, startup/shutdown, settings UI
-src/Zwitcher.Core/         No UI. All logic and Win32 interop.
-  SwitcherController.cs    Central state machine (see docs/ARCHITECTURE.md)
+src/Zwitcher.App/          WPF exe. App.xaml.cs is the composition root.
+  Overlay/                 OverlayWindow (IOverlayView), OverlayRow, WindowIconCache
+  SettingsUi/              SettingsWindow, GeneralPage, AboutPage, SettingsFlyoutOpener
+  Tray/                    TrayIcon
+  Updates/                 AppUpdater, UpdateFlow
+  Debugging/               DebugCommands (Debug builds only)
+src/Zwitcher.Core/         No UI. All logic and Win32 interop. Folders are features.
+  Switching/               SwitcherController (central state machine), SwitcherCommand,
+                           IOverlayView, IWindowActivator / Win32WindowActivator
+  Input/                   KeyboardHook (dedicated thread), HookDecisionTable, CommandPoster
+  WindowList/              WindowTracker, MruList, WindowFilter, IWindowQuery, WindowInfo
+  Icons/                   WindowIconReader, PackagedAppIconReader
+  Screen/                  Monitors, MonitorInfo, Win32Window, FlyoutPlacement
+  Configuration/           Settings, SettingsStore, JsonSettingsFile, StartupRegistration
+  Diagnostics/             RollingFileTraceListener
+  Interop/                 NativeMethods.txt only
   SingleInstanceGuard.cs   Named mutex that detects a second launch
-  Interop/                 NativeMethods.txt, thin safe wrappers around CsWin32 output
-  Input/                   KeyboardHook (dedicated thread), SwitcherCommand
-  Windows/                 WindowTracker, WindowFilter, IWindowQuery, WindowInfo
-  Activation/              WindowActivator
 tests/Zwitcher.Core.Tests/ Unit tests for Core
 ```
+
+Win32 code lives in the feature folder it serves. A Win32 implementation of a Core
+interface is named `Win32<Name>` (`IWindowQuery` → `Win32WindowQuery`), its test fake
+`Fake<Name>`. No `Service`/`Manager`/`Helper` suffixes; see Naming in ARCHITECTURE.md.
 
 Dependency rules:
 - `Zwitcher.Core` must never reference WPF or any UI assembly.

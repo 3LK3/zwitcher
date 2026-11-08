@@ -1,4 +1,4 @@
-using Zwitcher.Core.Windows;
+using Zwitcher.Core.WindowList;
 
 namespace Zwitcher.Core.Tests;
 

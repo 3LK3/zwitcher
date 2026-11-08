@@ -1,11 +1,11 @@
-using Zwitcher.Core.Windows;
+using Zwitcher.Core.WindowList;
 
 namespace Zwitcher.Core.Tests;
 
 public sealed class MruListTests
 {
     private static WindowInfo[] Windows(params nint[] handles) =>
-        [.. handles.Select(h => new WindowInfo(h, "Title", 1, null))];
+        [.. handles.Select(h => new WindowInfo(h, "Title", 1))];
 
     private static IEnumerable<nint> Sorted(MruList list, params nint[] handles) =>
         list.Sort(Windows(handles)).Select(w => w.Handle);

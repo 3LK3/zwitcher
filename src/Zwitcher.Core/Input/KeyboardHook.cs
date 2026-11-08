@@ -2,14 +2,14 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Input.KeyboardAndMouse;
 using Windows.Win32.UI.WindowsAndMessaging;
-using Zwitcher.Core.Interop;
+using Zwitcher.Core.Switching;
 
 namespace Zwitcher.Core.Input;
 
 /// <summary>
 /// The low-level keyboard hook, on its own thread with its own message loop. The callback runs
 /// on every keystroke system-wide: if it's slow, typing lags for the whole OS and Windows
-/// silently removes the hook. So it only applies HookDecisions and posts the result.
+/// silently removes the hook. So it only applies HookDecisionTable and posts the result.
 /// https://learn.microsoft.com/windows/win32/winmsg/lowlevelkeyboardproc
 /// </summary>
 public sealed class KeyboardHook : IDisposable
@@ -19,7 +19,7 @@ public sealed class KeyboardHook : IDisposable
     private const uint LlkhfUp = 0x80;
 
     private readonly CommandPoster _poster;
-    private readonly ISwitcherState _state;
+    private readonly SwitcherActiveFlag _activeFlag;
 
     // Held in a field, or the GC would collect the delegate while native code still calls it.
     private readonly HOOKPROC _callback;
@@ -29,10 +29,10 @@ public sealed class KeyboardHook : IDisposable
     private uint _threadId;
     private volatile bool _enabled = true;
 
-    public KeyboardHook(CommandPoster poster, ISwitcherState state)
+    public KeyboardHook(CommandPoster poster, SwitcherActiveFlag activeFlag)
     {
         _poster = poster;
-        _state = state;
+        _activeFlag = activeFlag;
         _callback = Callback;
 
         // Above normal, so that a busy machine doesn't delay every keystroke.
@@ -81,7 +81,7 @@ public sealed class KeyboardHook : IDisposable
         _threadId = PInvoke.GetCurrentThreadId();
 
         // Compiles the decision code now, so that the first real key isn't delayed by the JIT.
-        HookDecisions.Decide(0, false, false, false, false);
+        HookDecisionTable.Decide(0, false, false, false, false);
 
         using var module = PInvoke.GetModuleHandle((string?)null);
         using var hook = PInvoke.SetWindowsHookEx(
@@ -109,19 +109,19 @@ public sealed class KeyboardHook : IDisposable
             // Alt comes from the event and Shift from the system, rather than from tracked
             // state. We miss keys while an elevated window has focus, and a stale "Alt is down"
             // would turn a plain Tab into a switcher command.
-            var decision = HookDecisions.Decide(
+            var decision = HookDecisionTable.Decide(
                 key->vkCode,
                 (flags & LlkhfUp) != 0,
                 (flags & LlkhfAltDown) != 0,
                 PInvoke.GetAsyncKeyState((int)VIRTUAL_KEY.VK_SHIFT) < 0,
-                _state.IsActive
+                _activeFlag.IsSet
             );
 
             if (decision.Command is { } command)
             {
                 if (command is SwitcherCommand.Activate or SwitcherCommand.ActivatePrev)
                 {
-                    _state.IsActive = true;
+                    _activeFlag.IsSet = true;
                 }
 
                 _poster.Post(command);

@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using Zwitcher.Core.Configuration;
 
 namespace Zwitcher.Core.Tests;
 

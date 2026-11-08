@@ -1,10 +1,10 @@
-using Zwitcher.Core.Windows;
+using Zwitcher.Core.WindowList;
 
 namespace Zwitcher.Core.Tests;
 
 public sealed class WindowTrackerTests
 {
-    private readonly FakeWindowEvents _events = new();
+    private readonly FakeWindowEventSource _events = new();
 
     private WindowTracker Started(FakeWindowQuery query)
     {
@@ -38,7 +38,7 @@ public sealed class WindowTrackerTests
 
         var window = Assert.Single(Started(query).Snapshot());
 
-        Assert.Equal(new WindowInfo(7, "Notes", 42, null), window);
+        Assert.Equal(new WindowInfo(7, "Notes", 42), window);
     }
 
     [Fact]
