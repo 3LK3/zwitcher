@@ -25,19 +25,34 @@ listing your open windows in most-recently-used order.
 
 ## Install
 
-1. Download `Zwitcher-win-Setup.exe` from the
-   [latest release](https://github.com/3LK3/zwitcher/releases/latest).
-2. Run it. It installs for the current user (no admin rights, .NET is built in) and starts
-   Zwitcher. The installer isn't signed, so Windows SmartScreen may warn about it:
+Each [release](https://github.com/3LK3/zwitcher/releases/latest) has two installers. .NET is
+built into both.
+
+| | `Zwitcher-win.msi` (recommended) | `Zwitcher-win-Setup.exe` |
+|---|---|---|
+| Installs to | `C:\Program Files\Zwitcher` (all users) | `%LocalAppData%\Zwitcher` (current user) |
+| Admin rights | Needed to install and to update | Not needed |
+| Alt+Tab over admin windows | Yes, see below | **No**, see [Known limitations](#known-limitations) |
+
+1. Download one of them and run it. Windows SmartScreen may warn about a new installer:
    choose **More info → Run anyway**.
-3. Zwitcher sits in the tray. Press **Alt+Tab**. To start it with Windows, open
+2. Zwitcher sits in the tray. Press **Alt+Tab**. To start it with Windows, open
    **Settings** from the tray menu and tick **Start with Windows**.
+
+Alt+Tab while an **elevated (administrator) window** has focus works only with the MSI
+install. Windows lets Zwitcher see keyboard input over elevated windows (`uiAccess`) only when
+its exe is signed with a certificate the PC trusts **and** sits in a folder only
+administrators can write to, such as Program Files. A per-user install in `%LocalAppData%`
+can never meet the second condition.
 
 **Updates:** Zwitcher checks for a new version when it starts. If there is one, it shows a
 tray notification and an *Update to x.y.z* item in the tray menu; click it to download and
-restart. `Zwitcher-win-Portable.zip` is also available, but it does not update itself.
+restart. An MSI install asks for admin rights to update. `Zwitcher-win-Portable.zip` is also
+available, but it does not update itself and has the same limitation as the per-user install.
 
-Coming from the 1.0.0 zip? Exit it, delete the old folder and run the installer once.
+**Switching from the per-user install to the MSI:** exit Zwitcher, remove the per-user install
+in **Settings → Apps**, then run the MSI. Coming from the 1.0.0 zip? Exit it, delete the old
+folder and run an installer once.
 
 **Files:** settings in `%AppData%\Zwitcher\settings.json`, logs in
 `%LocalAppData%\Zwitcher\logs` (shown in *About*). If something goes wrong, the log is the
@@ -68,12 +83,21 @@ dotnet csharpier format .    # format
 dotnet csharpier check .     # verify formatting (CI)
 ```
 
-Release build, the same as CI makes it (self-contained single file, packed with Velopack
-into `artifacts/release/win-x64`):
+Release build, the same as CI makes it (self-contained single files, packed with Velopack
+into `artifacts/release`):
 
 ```powershell
 ./build/publish.ps1
 ```
+
+Without `SIGNING_PFX_PATH` and `SIGNING_PFX_PASSWORD` set, this builds an unsigned package
+without `uiAccess`, so it keeps the elevated-window limitation. With them, it signs every exe,
+the Setup.exe and the MSI, and the app gets `uiAccess`. The release workflow reads the
+certificate from the `SIGNING_PFX_BASE64` and `SIGNING_PFX_PASSWORD` repository secrets.
+
+`Zwitcher.exe` in an install is a small launcher. It starts `Zwitcher.App.exe` through the
+shell, because Windows won't let other programs (like Velopack's shortcuts and updater) start
+a `uiAccess` exe directly. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 CI runs on GitHub Actions: formatting check, build with warnings as errors, tests and a
 publish. Pushing a tag like `v1.0.0` runs the release workflow, which builds the Velopack
@@ -85,6 +109,7 @@ match `<Version>` in `Directory.Build.props`, the only place the version is set.
 ```
 src/Zwitcher.App/          WPF app: overlay, tray icon, settings, message window
 src/Zwitcher.Core/         Logic and Win32 interop (no UI): controller, hook, window tracking
+src/Zwitcher.Launcher/     Zwitcher.exe: starts the app through the shell (see above)
 tests/Zwitcher.Core.Tests/ Unit tests for Core
 docs/                      Architecture and roadmap
 ```
@@ -98,11 +123,16 @@ Built with .NET 10, WPF and [CsWin32](https://github.com/microsoft/CsWin32). The
 
 - Windows only.
 - While an **elevated (administrator) window** has focus, Windows does not deliver keyboard
-  input to the hook, so Alt+Tab falls back to the native switcher there. Signed releases
-  installed with the MSI (under Program Files) avoid this through `uiAccess`; unsigned and
-  self-built copies don't.
+  input to the hook, so Alt+Tab falls back to the native switcher there. Only the MSI
+  install under Program Files avoids this (see [Install](#install)).
+- **Per-user installs** (`Zwitcher-win-Setup.exe`, in `%LocalAppData%`) and the portable zip
+  always have the limitation above. Windows grants `uiAccess` only to exes in folders that
+  only administrators can write to, and a user's own folders never qualify. Zwitcher still
+  works everywhere else.
+- Unsigned and self-built copies also have the limitation, wherever they are installed.
 - Win+Tab and Task View are untouched.
-- The exe is unsigned, so SmartScreen may warn on first start.
+- SmartScreen may warn about the installer until the signing certificate has built up
+  reputation.
 - Releases are built for x64 only.
-- The exe is large (about 165 MB) because it carries the .NET runtime, WPF
+- The app exe is large (about 165 MB) because it carries the .NET runtime, WPF
   and WinForms.

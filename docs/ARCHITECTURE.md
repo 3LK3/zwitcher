@@ -386,10 +386,17 @@ process. Unobserved task exceptions are only logged.
 
 - While an elevated window has focus, the hook doesn't receive input (UIPI). Signed
   release builds work around this with `uiAccess="true"` (`app.uiaccess.manifest`):
-  Windows honours it only for an Authenticode-signed exe installed in a secure location,
-  which is why the MSI installs per machine under Program Files. Unsigned and Debug builds
-  use `app.manifest` (`uiAccess="false"`) and keep the limitation, because Windows refuses
-  to start an unsigned uiAccess exe. There is no workaround in code.
+  Windows honours it only for an exe signed with a certificate that chains to a trusted root
+  on that machine and installed in a secure location (`%ProgramFiles%`, `%WinDir%`), which is
+  why the MSI installs per machine under Program Files. Otherwise Windows doesn't grant
+  uiAccess: Microsoft documents that the app then starts without it, and an unsigned uiAccess
+  exe started by `CreateProcess` fails with `0x8007202B`. So unsigned and Debug builds use
+  `app.manifest` (`uiAccess="false"`).
+  ([policy docs](https://learn.microsoft.com/previous-versions/windows/it-pro/windows-10/security/threat-protection/security-policy-settings/user-account-control-only-elevate-uiaccess-applications-that-are-installed-in-secure-locations))
+- **Per-user installs** (`Setup.exe` into `%LocalAppData%`, `Portable.zip`) contain the same
+  signed uiAccess exe but are never in a secure location, so they always keep the
+  elevated-window limitation. Only the per-machine MSI removes it. There is no workaround in
+  code.
 - Win+Tab and Task View are untouched.
 
 ## Release
