@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Zwitcher.App.Tray;
 
 namespace Zwitcher.App.Updates;
@@ -7,7 +7,7 @@ namespace Zwitcher.App.Updates;
 /// Checks for an update once and offers it in the tray. Nothing is installed until the user
 /// clicks the offer.
 /// </summary>
-public sealed class UpdateFlow(TrayIcon tray)
+public sealed class UpdateFlow(TrayIcon tray, ILogger<UpdateFlow> logger)
 {
     private readonly AppUpdater _updater = new();
 
@@ -20,9 +20,15 @@ public sealed class UpdateFlow(TrayIcon tray)
         try
         {
             var update = await _updater.CheckAsync();
-            Trace.TraceInformation(
-                $"Update check: {update?.TargetFullRelease.Version.ToString() ?? "none"}"
-            );
+
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                logger.LogDebug(
+                    "Update check: {Version}",
+                    update?.TargetFullRelease.Version.ToString() ?? "none"
+                );
+            }
+
             if (update is null)
             {
                 return;
@@ -37,7 +43,7 @@ public sealed class UpdateFlow(TrayIcon tray)
                 }
                 catch (Exception ex)
                 {
-                    Trace.TraceError($"Update failed: {ex}");
+                    logger.LogError(ex, "Update failed");
                     tray.SetUpdateRetry("Update failed, retry");
                 }
             };
@@ -45,7 +51,7 @@ public sealed class UpdateFlow(TrayIcon tray)
         }
         catch (Exception ex)
         {
-            Trace.TraceWarning($"Update check failed: {ex}");
+            logger.LogWarning(ex, "Update check failed");
         }
     }
 }

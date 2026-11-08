@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Zwitcher.App.Tray;
 using Zwitcher.Core.Configuration;
 
@@ -7,7 +8,11 @@ namespace Zwitcher.App.Settings;
 /// Opens the settings flyout for a tray request, or brings the open one forward. At most one
 /// flyout exists at a time.
 /// </summary>
-public sealed class SettingsFlyoutOpener(SettingsStore settings, StartupRegistration startup)
+public sealed class SettingsFlyoutOpener(
+    SettingsStore settings,
+    StartupRegistration startup,
+    ILoggerFactory loggers
+)
 {
     private const long ReopenAfterCloseMs = 300;
 
@@ -31,7 +36,7 @@ public sealed class SettingsFlyoutOpener(SettingsStore settings, StartupRegistra
             return;
         }
 
-        var window = new SettingsWindow(settings, startup);
+        var window = new SettingsWindow(settings, startup, loggers);
         window.Closed += (_, _) =>
         {
             _window = null;

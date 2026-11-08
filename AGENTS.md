@@ -40,9 +40,9 @@ src/Zwitcher.Core/         No UI. All logic and Win32 interop. Folders are featu
   Icons/                   WindowIconReader, PackagedAppIconReader
   Screen/                  Monitors, MonitorInfo, Win32Window, FlyoutPlacement
   Configuration/           Settings, SettingsStore, JsonSettingsFile, StartupRegistration
-  Diagnostics/             RollingFileTraceListener
   Interop/                 NativeMethods.txt only
   SingleInstanceGuard.cs   Named mutex that detects a second launch
+  ZwitcherLog.cs           Log file location (the Serilog logger is composed in App)
 tests/Zwitcher.Core.Tests/ Unit tests for Core
 ```
 

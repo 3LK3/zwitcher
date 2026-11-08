@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
 using Zwitcher.Core.Configuration;
 using Zwitcher.Core.Screen;
 using Zwitcher.Core.Switching;
@@ -22,6 +23,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     // Of the work area. Longer lists scroll.
     private const double MaxHeightShare = 0.8;
 
+    private readonly ILogger<OverlayWindow> _logger;
     private readonly WindowIconCache _icons = new();
 
     private OverlayRow[] _rows = [];
@@ -31,9 +33,12 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     private ShowOnMonitor _showOn;
     private double _width;
 
-    public OverlayWindow()
+    public OverlayWindow(ILogger<OverlayWindow> logger)
     {
         InitializeComponent();
+
+        _logger = logger;
+
         var defaults = new Core.Configuration.Settings();
         ApplySettings(defaults.ShowOn, defaults.Layout);
     }
@@ -59,8 +64,11 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     public void WarmUp()
     {
         Opacity = 0;
+
         Show([new WindowInfo(0, "Warm up", 0)], 0);
+
         _warmingUp = true;
+
         Dispatcher.BeginInvoke(
             DispatcherPriority.ContextIdle,
             () =>
@@ -79,7 +87,9 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 #if DEBUG
         var stopwatch = Stopwatch.StartNew();
 #endif
+
         EndWarmUp();
+
         _icons.KeepOnly(windows);
         SetRows(windows, selectedIndex);
         MoveToTargetMonitor();
@@ -89,11 +99,21 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         UpdateLayout();
         BringSelectionIntoView();
         LoadMissingIcons();
+
 #if DEBUG
         // Loaded runs right after Render, so this includes layout and the first frame.
         Dispatcher.BeginInvoke(
             DispatcherPriority.Loaded,
-            () => Debug.WriteLine($"Overlay shown in {stopwatch.ElapsedMilliseconds} ms")
+            () =>
+            {
+                if (_logger.IsEnabled(LogLevel.Trace))
+                {
+                    _logger.LogTrace(
+                        "Overlay shown in {ElapsedMs} ms",
+                        stopwatch.ElapsedMilliseconds
+                    );
+                }
+            }
         );
 #endif
     }
@@ -108,7 +128,15 @@ public sealed partial class OverlayWindow : Window, IOverlayView
 
     public void UpdateWindows(IReadOnlyList<WindowInfo> windows, int selectedIndex)
     {
-        Debug.WriteLine($"Overlay updated: {windows.Count} rows, selected={selectedIndex}");
+        if (_logger.IsEnabled(LogLevel.Trace))
+        {
+            _logger.LogTrace(
+                "Overlay updated: {WindowCount} rows, selected={SelectedIndex}",
+                windows.Count,
+                selectedIndex
+            );
+        }
+
         SetRows(windows, selectedIndex);
         FitToRows();
         UpdateLayout();
@@ -122,20 +150,20 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         Win32Window.HideFromAltTab(new WindowInteropHelper(this).Handle);
     }
 
-    private void OnRowClicked(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: OverlayRow row })
-        {
-            ItemClicked?.Invoke(Array.IndexOf(_rows, row));
-        }
-    }
-
     private void EndWarmUp()
     {
         if (_warmingUp)
         {
             _warmingUp = false;
             Opacity = 1;
+        }
+    }
+
+    private void OnRowClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: OverlayRow row })
+        {
+            ItemClicked?.Invoke(Array.IndexOf(_rows, row));
         }
     }
 

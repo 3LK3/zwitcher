@@ -3,15 +3,21 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
-using Zwitcher.Core.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Zwitcher.Core;
 
 namespace Zwitcher.App.Settings;
 
 public sealed partial class AboutPage : UserControl
 {
-    public AboutPage()
+    private readonly ILogger<AboutPage> _logger;
+
+    public AboutPage(ILogger<AboutPage> logger)
     {
         InitializeComponent();
+
+        _logger = logger;
+
         VersionText.Text = $"Version {AppInfo.Version()}";
         RepositoryText.Text = AppInfo.RepositoryUrl;
         AppIcon.Source = LoadIcon();
@@ -23,12 +29,21 @@ public sealed partial class AboutPage : UserControl
     private void OnOpenLogsClicked(object sender, RoutedEventArgs e)
     {
         // The folder only exists after the first log line, which is written at startup, but
-        // a failed create there is swallowed by the listener.
-        Directory.CreateDirectory(RollingFileTraceListener.DefaultDirectory);
-        Open(RollingFileTraceListener.DefaultDirectory);
+        // Serilog swallows a failed create there. Explorer can't open a missing folder.
+        try
+        {
+            Directory.CreateDirectory(ZwitcherLog.DefaultDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not create {Directory}", ZwitcherLog.DefaultDirectory);
+            return;
+        }
+
+        Open(ZwitcherLog.DefaultDirectory);
     }
 
-    private static void Open(string target)
+    private void Open(string target)
     {
         try
         {
@@ -36,7 +51,7 @@ public sealed partial class AboutPage : UserControl
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
         {
-            Trace.TraceWarning($"Could not open {target}: {ex.Message}");
+            _logger.LogWarning(ex, "Could not open {Target}", target);
         }
     }
 

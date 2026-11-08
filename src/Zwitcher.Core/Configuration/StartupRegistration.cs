@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Security;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 namespace Zwitcher.Core.Configuration;
@@ -8,7 +8,12 @@ namespace Zwitcher.Core.Configuration;
 /// Start with Windows, through a value in the current user's Run key. The registry is the only
 /// source of truth, so that this can't disagree with what Windows will actually do.
 /// </summary>
-public sealed class StartupRegistration(string keyPath, string valueName, string executablePath)
+public sealed class StartupRegistration(
+    string keyPath,
+    string valueName,
+    string executablePath,
+    ILogger<StartupRegistration> logger
+)
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
@@ -16,8 +21,10 @@ public sealed class StartupRegistration(string keyPath, string valueName, string
 
     public bool IsEnabled => ReadValue() is not null;
 
-    public static StartupRegistration ForCurrentUser(string executablePath) =>
-        new(RunKey, "Zwitcher", executablePath);
+    public static StartupRegistration ForCurrentUser(
+        string executablePath,
+        ILogger<StartupRegistration> logger
+    ) => new(RunKey, "Zwitcher", executablePath, logger);
 
     /// <summary>Returns false if the registry refused the change.</summary>
     public bool TrySetEnabled(bool enabled)
@@ -39,7 +46,7 @@ public sealed class StartupRegistration(string keyPath, string valueName, string
         catch (Exception e)
             when (e is IOException or UnauthorizedAccessException or SecurityException)
         {
-            Trace.TraceWarning($"Changing the Run key failed: {e.Message}");
+            logger.LogWarning(e, "Changing the Run key failed");
             return false;
         }
     }

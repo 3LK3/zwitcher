@@ -1,6 +1,6 @@
 #if DEBUG
-using System.Diagnostics;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
 using Zwitcher.App.Tray;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Switching;
@@ -16,11 +16,12 @@ public static class DebugCommands
         TrayIcon tray,
         CommandPoster poster,
         SwitcherActiveFlag activeFlag,
-        IWindowTracker tracker
+        IWindowTracker tracker,
+        ILogger logger
     )
     {
         tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, activeFlag);
-        tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker);
+        tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker, logger);
     }
 
     /// <summary>`--crash-test=ui` or `--crash-test=pool` throws shortly after startup.</summary>
@@ -63,14 +64,22 @@ public static class DebugCommands
         poster.Post(SwitcherCommand.Confirm);
     }
 
-    private static void DumpWindows(IWindowTracker tracker)
+#pragma warning disable CA1873 // Avoid potentially expensive logging
+    private static void DumpWindows(IWindowTracker tracker, ILogger logger)
     {
         var windows = tracker.Snapshot();
-        Debug.WriteLine($"--- {windows.Count} windows");
+        logger.LogInformation("--- {Count} windows", windows.Count);
+
         foreach (var window in windows)
         {
-            Debug.WriteLine($"{window.Handle} pid={window.ProcessId} \"{window.Title}\"");
+            logger.LogInformation(
+                "{Handle} pid={Pid} \"{Title}\"",
+                window.Handle,
+                window.ProcessId,
+                window.Title
+            );
         }
     }
+#pragma warning restore CA1873 // Avoid potentially expensive logging
 }
 #endif

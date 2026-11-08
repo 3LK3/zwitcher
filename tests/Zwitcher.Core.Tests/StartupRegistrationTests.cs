@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
 using Zwitcher.Core.Configuration;
 
@@ -20,7 +21,7 @@ public sealed class StartupRegistrationTests : IDisposable
     }
 
     private StartupRegistration Registration(string executable = Executable) =>
-        new(_key, ValueName, executable);
+        new(_key, ValueName, executable, NullLogger<StartupRegistration>.Instance);
 
     private string? Value()
     {

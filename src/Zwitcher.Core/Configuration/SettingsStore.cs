@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace Zwitcher.Core.Configuration;
 
@@ -6,7 +6,7 @@ namespace Zwitcher.Core.Configuration;
 /// The current settings: applies changes, saves them to the file and reports them. UI thread
 /// only, like all mutable state.
 /// </summary>
-public sealed class SettingsStore(ISettingsFile file)
+public sealed class SettingsStore(ISettingsFile file, ILogger<SettingsStore> logger)
 {
     public Settings Current { get; private set; } = file.Load();
 
@@ -32,7 +32,7 @@ public sealed class SettingsStore(ISettingsFile file)
         // The setting still applies until the next start, which beats losing the change.
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Trace.TraceWarning($"Saving settings failed: {e.Message}");
+            logger.LogWarning(e, "Saving settings failed");
         }
 
         Changed?.Invoke(updated);

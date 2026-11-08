@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using Microsoft.Extensions.Logging;
 using Zwitcher.Core.Configuration;
 using Zwitcher.Core.Screen;
 
@@ -15,10 +16,14 @@ namespace Zwitcher.App.Settings;
 public sealed partial class SettingsWindow : Window
 {
     private readonly GeneralPage _general;
-    private readonly AboutPage _about = new();
+    private readonly AboutPage _about;
     private bool _closing;
 
-    public SettingsWindow(SettingsStore settings, StartupRegistration startup)
+    public SettingsWindow(
+        SettingsStore settings,
+        StartupRegistration startup,
+        ILoggerFactory loggers
+    )
     {
         // Fluent controls that follow the Windows light/dark setting. Only this window opts in,
         // the overlay keeps its own look. The API is marked experimental in .NET 9+.
@@ -27,7 +32,9 @@ public sealed partial class SettingsWindow : Window
 #pragma warning restore WPF0001
 
         InitializeComponent();
+
         _general = new GeneralPage(settings, startup);
+        _about = new AboutPage(loggers.CreateLogger<AboutPage>());
 
         SourceInitialized += (_, _) =>
             Win32Window.RoundCorners(new WindowInteropHelper(this).Handle);

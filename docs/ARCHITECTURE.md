@@ -271,18 +271,26 @@ its close button. It's created for each opening and closed afterwards.
 - Only this window uses WPF's Fluent theme (`ThemeMode.System`, light/dark like Windows). The
   overlay keeps its own look.
 
-### Logging (Core/Diagnostics)
-Code logs through `System.Diagnostics.Trace` (`TraceInformation`, `TraceWarning`,
-`TraceError`), so Core needs no logger of its own and no static state. At startup the App adds
-a `RollingFileTraceListener` writing to `%LocalAppData%\Zwitcher\logs\zwitcher.log`. It rolls
-over at 1 MB, keeps three old files, and swallows its own write errors: logging must never
-take the app down.
+### Logging (App, `ZwitcherLog` in Core)
+Components take an `ILogger<T>` (`Microsoft.Extensions.Logging`) through their constructor.
+Core references only `Microsoft.Extensions.Logging.Abstractions`, so it doesn't know about
+Serilog and tests pass `NullLogger<T>.Instance`. No `Trace`, `Debug.WriteLine` or `Console`
+output anywhere.
 
+`App.StartLogging` composes the logger: a Serilog `LoggerConfiguration` wrapped in an
+`ILoggerFactory` (`AddSerilog(..., dispose: true)`), so disposing the factory in `OnExit`
+flushes and closes the file. `ZwitcherLog` (Core) holds only the location,
+`%LocalAppData%\Zwitcher\logs\zwitcher.log`, which the About page opens too.
+- File sink: rolls over at 1 MB and keeps 5 files including the current one. Serilog swallows
+  its own write errors: logging must never take the app down.
+- Release logs `Information` and up. Debug builds log everything (`Verbose`) and also write to
+  the debugger output. A console sink exists for development but is off by default.
+- Use message templates with PascalCase properties (`"Failed for {Handle}"`), not
+  interpolated strings, and pass exceptions as the first argument. Guard `Trace`/`Debug`
+  calls on hot paths with `IsEnabled`; the overlay's show-time line is also `#if DEBUG`.
 - **Never from the hook callback.** A file write there would delay every keystroke.
-- Trace serializes listener calls (`Trace.UseGlobalLock`), so the icon pool thread may log
-  too. This lock is inside the BCL and only on the logging path, not in our state.
-- `Debug.WriteLine` lands in the same file in Debug builds and is compiled out of Release.
-  Timing lines on the show path use it, so Release does no I/O there.
+- Serilog loggers are thread-safe, so the icon pool thread may log too. Its locks are only on
+  the logging path, not in our state.
 
 ### Updates (App/Updates)
 `AppUpdater` wraps Velopack's `UpdateManager` with a `GithubSource`. At startup (Release
@@ -389,9 +397,8 @@ Folders are features; namespaces follow folders.
 | `WindowIconReader`, `PackagedAppIconReader`, `PixelImage` | `Zwitcher.Core/Icons` |
 | `MonitorInfo`, `Monitors`, `PixelRect`, `PixelPoint`, `FlyoutPlacement`, `Win32Window` | `Zwitcher.Core/Screen` |
 | `Settings`, `ShowOn`, `OverlayLayout`, `SettingsStore`, `ISettingsFile` / `JsonSettingsFile`, `StartupRegistration` | `Zwitcher.Core/Configuration` |
-| `RollingFileTraceListener` | `Zwitcher.Core/Diagnostics` |
 | `NativeMethods.txt` (only) | `Zwitcher.Core/Interop` |
-| `SingleInstanceGuard` | `Zwitcher.Core` |
+| `SingleInstanceGuard`, `ZwitcherLog` | `Zwitcher.Core` |
 | `App` (composition root), `AppInfo`, `MessageWindow` | `Zwitcher.App` |
 | `OverlayWindow` (implements `IOverlayView`), `OverlayRow`, `WindowIconCache` | `Zwitcher.App/Overlay` |
 | `SettingsWindow`, `GeneralPage`, `AboutPage`, `SettingsFlyoutOpener` | `Zwitcher.App/SettingsUi` |

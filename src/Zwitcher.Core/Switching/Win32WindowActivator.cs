@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -7,7 +7,7 @@ using Zwitcher.Core.Input;
 namespace Zwitcher.Core.Switching;
 
 /// <summary>Brings a window to the foreground. A window that has closed just fails quietly.</summary>
-public sealed class Win32WindowActivator : IWindowActivator
+public sealed class Win32WindowActivator(ILogger<Win32WindowActivator> logger) : IWindowActivator
 {
     public void Prepare() => MaskKey.Tap();
 
@@ -30,7 +30,7 @@ public sealed class Win32WindowActivator : IWindowActivator
         MaskKey.Tap();
         if (!PInvoke.SetForegroundWindow(target))
         {
-            Trace.TraceWarning($"SetForegroundWindow failed for {handle}");
+            logger.LogWarning("SetForegroundWindow failed for {Handle}", handle);
         }
     }
 }

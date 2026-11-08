@@ -1,13 +1,14 @@
-using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Interop;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using Velopack;
 using Zwitcher.App.Overlay;
 using Zwitcher.App.Settings;
 using Zwitcher.App.Tray;
 using Zwitcher.Core;
 using Zwitcher.Core.Configuration;
-using Zwitcher.Core.Diagnostics;
 using Zwitcher.Core.Input;
 using Zwitcher.Core.Switching;
 using Zwitcher.Core.WindowList;
@@ -29,8 +30,10 @@ public sealed partial class App : Application
     // can run their own instance.
     private const string InstanceMutexName = @"Local\Zwitcher-7f3c1a52-8e4b-4d06-9b1e-2c5d6a90f3e7";
 
+    private ILoggerFactory? _loggerFactory;
+    private ILogger<App>? _logger;
+
     private SingleInstanceGuard? _instanceGuard;
-    private RollingFileTraceListener? _log;
     private Win32WindowEventSource? _windowEvents;
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
@@ -47,14 +50,28 @@ public sealed partial class App : Application
             return;
         }
 
-        StartLog();
+        StartLogging();
+        _logger = _loggerFactory?.CreateLogger<App>();
+        _logger?.LogInformation(
+            "Zwitcher {Version} started on Windows {OsVersion}, exe {ExePath}",
+            AppInfo.Version(),
+            Environment.OSVersion.Version,
+            Environment.ProcessPath
+        );
 
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += (_, args) =>
-            Trace.TraceWarning($"Unobserved task exception: {args.Exception}");
+            _logger?.LogError(args.Exception, "Unobserved task exception");
 
-        var settings = new SettingsStore(new JsonSettingsFile(JsonSettingsFile.DefaultPath));
-        var startup = StartupRegistration.ForCurrentUser(Environment.ProcessPath!);
+        var settings = new SettingsStore(
+            new JsonSettingsFile(JsonSettingsFile.DefaultPath),
+            _loggerFactory!.CreateLogger<SettingsStore>()
+        );
+
+        var startup = StartupRegistration.ForCurrentUser(
+            Environment.ProcessPath!,
+            _loggerFactory!.CreateLogger<StartupRegistration>()
+        );
         startup.RepairPath();
 
         _windowEvents = new Win32WindowEventSource();
@@ -67,7 +84,7 @@ public sealed partial class App : Application
         var controller = new SwitcherController(
             tracker,
             overlay,
-            new Win32WindowActivator(),
+            new Win32WindowActivator(_loggerFactory!.CreateLogger<Win32WindowActivator>()),
             activeFlag
         );
         _messageWindow = new MessageWindow(controller.Handle);
@@ -83,7 +100,7 @@ public sealed partial class App : Application
             }
         };
 
-        var settingsFlyout = new SettingsFlyoutOpener(settings, startup);
+        var settingsFlyout = new SettingsFlyoutOpener(settings, startup, _loggerFactory!);
         var tray = new TrayIcon();
         tray.SetEnabled(settings.Current.Enabled);
         tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
@@ -92,13 +109,19 @@ public sealed partial class App : Application
         _tray = tray;
 
 #if DEBUG
-        DebugCommands.Attach(tray, poster, activeFlag, tracker);
+        DebugCommands.Attach(
+            tray,
+            poster,
+            activeFlag,
+            tracker,
+            _loggerFactory!.CreateLogger("DebugCommands")
+        );
 #else
-        _ = new UpdateFlow(tray).RunAsync();
+        _ = new UpdateFlow(tray, _loggerFactory!.CreateLogger<UpdateFlow>()).RunAsync();
 #endif
 
         // Last: commands may arrive from here on, so everything else must be ready.
-        var hook = StartHook(poster, activeFlag, settings.Current.Enabled);
+        var hook = StartKeyboardHook(poster, activeFlag, settings.Current.Enabled);
         _hook = hook;
 
         settings.Changed += current =>
@@ -121,40 +144,56 @@ public sealed partial class App : Application
         _tray?.Dispose();
         _messageWindow?.Dispose();
         _instanceGuard?.Dispose();
-        if (_log is not null)
-        {
-            Trace.TraceInformation("Exited");
-            Trace.Listeners.Remove(_log);
-            _log.Dispose();
-        }
+        _logger?.LogInformation("Exited");
+        _loggerFactory?.Dispose();
 
         base.OnExit(e);
     }
 
-    private void StartLog()
+    private void StartLogging(bool useConsole = false)
     {
-        // After the single-instance check, so that a second launch can't write to the same file.
-        _log = new RollingFileTraceListener(RollingFileTraceListener.DefaultDirectory);
-        Trace.Listeners.Add(_log);
-        Trace.TraceInformation(
-            $"Zwitcher {AppInfo.Version()} started on Windows {Environment.OSVersion.Version}, exe {Environment.ProcessPath}"
-        );
+        var config = new LoggerConfiguration()
+#if DEBUG
+            .MinimumLevel.Verbose() // Everything for development
+            .WriteTo.Debug() // Also write to debug output
+#else
+            .MinimumLevel.Information() // Information during normal operation.
+#endif
+            .Enrich.WithProperty("Version", AppInfo.Version())
+            .WriteTo.File(
+                ZwitcherLog.FilePath,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+                fileSizeLimitBytes: 1024 * 1024, // 1 MB
+                rollOnFileSizeLimit: true,
+                retainedFileCountLimit: 5,
+                shared: false
+            );
+
+        if (useConsole)
+        {
+            config.WriteTo.Console(
+                outputTemplate: "{Timestamp:HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+            );
+        }
+
+        var serilog = config.CreateLogger();
+        _loggerFactory = new LoggerFactory().AddSerilog(serilog, dispose: true);
     }
 
     /// <summary>
     /// Builds the HWND now but never shows it for real, so later show/hide is fast.
     /// EnsureHandle creates the native window without displaying it.
     /// </summary>
-    private static OverlayWindow CreateOverlay(Core.Configuration.Settings settings)
+    private OverlayWindow CreateOverlay(Core.Configuration.Settings settings)
     {
-        var overlay = new OverlayWindow();
+        var overlay = new OverlayWindow(_loggerFactory!.CreateLogger<OverlayWindow>());
         overlay.ApplySettings(settings.ShowOn, settings.Layout);
         new WindowInteropHelper(overlay).EnsureHandle();
         overlay.WarmUp();
         return overlay;
     }
 
-    private static KeyboardHook StartHook(
+    private KeyboardHook StartKeyboardHook(
         CommandPoster poster,
         SwitcherActiveFlag activeFlag,
         bool enabled
@@ -164,13 +203,12 @@ public sealed partial class App : Application
         hook.Start();
         if (hook.IsInstalled)
         {
-            Trace.TraceInformation("Keyboard hook installed: True");
+            _logger?.LogInformation("Keyboard hook installed");
         }
         else
         {
-            Trace.TraceError("Keyboard hook installed: False, the native Alt+Tab stays active");
+            _logger?.LogError("Unable to install keyboard hook: the native Alt+Tab stays active");
         }
-
         return hook;
     }
 
@@ -182,7 +220,7 @@ public sealed partial class App : Application
     /// </summary>
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
-        Trace.TraceError($"Unhandled exception, Zwitcher exits: {e.ExceptionObject}");
+        _logger?.LogCritical(e.ExceptionObject as Exception, "Unhandled exception");
         _hook?.Dispose();
 
         // NotifyIcon belongs to the UI thread. From another thread, the icon stays as a ghost

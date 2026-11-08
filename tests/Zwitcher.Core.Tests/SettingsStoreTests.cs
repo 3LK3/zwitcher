@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Zwitcher.Core.Configuration;
 
 namespace Zwitcher.Core.Tests;
@@ -11,13 +12,16 @@ public sealed class SettingsStoreTests
     {
         _file.Stored = new Settings { Layout = OverlayLayout.Grid };
 
-        Assert.Equal(OverlayLayout.Grid, new SettingsStore(_file).Current.Layout);
+        Assert.Equal(
+            OverlayLayout.Grid,
+            new SettingsStore(_file, NullLogger<SettingsStore>.Instance).Current.Layout
+        );
     }
 
     [Fact]
     public void Update_saves_and_raises_Changed()
     {
-        var store = new SettingsStore(_file);
+        var store = new SettingsStore(_file, NullLogger<SettingsStore>.Instance);
         Settings? raised = null;
         store.Changed += s => raised = s;
 
@@ -32,7 +36,7 @@ public sealed class SettingsStoreTests
     [Fact]
     public void Update_without_a_change_does_nothing()
     {
-        var store = new SettingsStore(_file);
+        var store = new SettingsStore(_file, NullLogger<SettingsStore>.Instance);
         var raised = 0;
         store.Changed += _ => raised++;
 
@@ -46,7 +50,7 @@ public sealed class SettingsStoreTests
     public void Failed_save_keeps_the_change_and_still_raises_Changed()
     {
         _file.FailOnSave = true;
-        var store = new SettingsStore(_file);
+        var store = new SettingsStore(_file, NullLogger<SettingsStore>.Instance);
         var raised = 0;
         store.Changed += _ => raised++;
 
