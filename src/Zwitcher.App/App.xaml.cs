@@ -52,12 +52,13 @@ public sealed partial class App : Application
 
         StartLogging();
         _logger = _loggerFactory?.CreateLogger<App>();
+#pragma warning disable CA1873 // Avoid potentially expensive logging
         _logger?.LogInformation(
-            "Zwitcher {Version} started on Windows {OsVersion}, exe {ExePath}",
+            "Zwitcher [{Version}] started on Windows {OsVersion}",
             AppInfo.Version(),
-            Environment.OSVersion.Version,
-            Environment.ProcessPath
+            Environment.OSVersion.Version
         );
+#pragma warning restore CA1873 // Avoid potentially expensive logging
 
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += (_, args) =>
