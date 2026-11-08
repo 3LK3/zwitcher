@@ -4,7 +4,7 @@ All notable changes to Zwitcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - 2026-11-08
 
 ### Changed
 
@@ -47,4 +47,5 @@ First release.
   Alt+Tab over elevated windows. Windows grants `uiAccess` only to apps under Program Files.
   Switch to the MSI to get it.
 
+[1.0.1]: https://github.com/3LK3/zwitcher/releases/tag/v1.0.1
 [1.0.0]: https://github.com/3LK3/zwitcher/releases/tag/v1.0.0

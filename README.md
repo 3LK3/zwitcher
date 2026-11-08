@@ -51,8 +51,7 @@ restart. An MSI install asks for admin rights to update. `Zwitcher-win-Portable.
 available, but it does not update itself and has the same limitation as the per-user install.
 
 **Switching from the per-user install to the MSI:** exit Zwitcher, remove the per-user install
-in **Settings → Apps**, then run the MSI. Coming from the 1.0.0 zip? Exit it, delete the old
-folder and run an installer once.
+in **Settings → Apps**, then run the MSI.
 
 **Files:** settings in `%AppData%\Zwitcher\settings.json`, logs in
 `%LocalAppData%\Zwitcher\logs` (shown in *About*). If something goes wrong, the log is the
