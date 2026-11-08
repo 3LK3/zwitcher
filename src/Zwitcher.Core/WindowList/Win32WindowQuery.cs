@@ -28,6 +28,13 @@ public sealed class Win32WindowQuery : IWindowQuery
     public bool IsTopLevel(nint window) =>
         PInvoke.GetAncestor((HWND)window, GET_ANCESTOR_FLAGS.GA_ROOT) == (HWND)window;
 
+    public nint GetRoot(nint window) =>
+        PInvoke.GetAncestor((HWND)window, GET_ANCESTOR_FLAGS.GA_ROOT);
+
+    // GW_OWNER, not GetParent: GetParent returns the owner only for some window styles.
+    // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-getwindow
+    public nint GetOwner(nint window) => PInvoke.GetWindow((HWND)window, GET_WINDOW_CMD.GW_OWNER);
+
     public bool IsVisible(nint window) => PInvoke.IsWindowVisible((HWND)window);
 
     public unsafe bool IsCloaked(nint window)

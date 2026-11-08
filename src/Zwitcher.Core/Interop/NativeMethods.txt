@@ -5,6 +5,7 @@ IsWindowVisible
 GetWindowLong
 GetAncestor
 GetLastActivePopup
+GetWindow
 GetShellWindow
 GetWindowTextLength
 GetWindowText

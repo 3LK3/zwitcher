@@ -54,6 +54,26 @@ public sealed class MruListTests
     }
 
     [Fact]
+    public void MoveToBackIfKnown_moves_a_known_window()
+    {
+        var list = Seeded(1, 2, 3);
+
+        list.MoveToBackIfKnown(1);
+
+        Assert.Equal([2, 3, 1], Sorted(list, 1, 2, 3));
+    }
+
+    [Fact]
+    public void MoveToBackIfKnown_does_not_add_an_unknown_window()
+    {
+        var list = Seeded(1, 2);
+
+        list.MoveToBackIfKnown(9);
+
+        Assert.False(list.Remove(9));
+    }
+
+    [Fact]
     public void Remove_reports_whether_the_window_was_known()
     {
         var list = Seeded(1, 2);

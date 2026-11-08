@@ -9,6 +9,8 @@ internal sealed record FakeWindow(nint Handle)
     public bool Shell { get; init; }
     public bool TopLevel { get; init; } = true;
     public WindowExStyle ExStyle { get; init; }
+    public nint? Root { get; init; }
+    public nint Owner { get; init; }
     public nint? RootOwner { get; init; }
     public nint? LastActivePopup { get; init; }
     public string Title { get; init; } = "Title";
@@ -29,6 +31,10 @@ internal sealed class FakeWindowQuery(params FakeWindow[] windows) : IWindowQuer
     public nint GetForegroundWindow() => Foreground;
 
     public bool IsTopLevel(nint window) => Get(window).TopLevel;
+
+    public nint GetRoot(nint window) => Get(window).Root ?? window;
+
+    public nint GetOwner(nint window) => Get(window).Owner;
 
     public bool IsVisible(nint window) => Get(window).Visible;
 

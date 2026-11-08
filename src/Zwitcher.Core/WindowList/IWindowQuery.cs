@@ -11,6 +11,12 @@ public interface IWindowQuery
 
     bool IsTopLevel(nint window);
 
+    /// <summary>The top-level window that contains this one; the window itself if it is top-level.</summary>
+    nint GetRoot(nint window);
+
+    /// <summary>The direct owner, or 0 if there is none.</summary>
+    nint GetOwner(nint window);
+
     bool IsVisible(nint window);
 
     bool IsCloaked(nint window);

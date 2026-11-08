@@ -23,6 +23,15 @@ public sealed class MruList
         _order.Add(window);
     }
 
+    /// <summary>Like <see cref="MoveToBack"/>, but ignores a window that isn't in the list.</summary>
+    public void MoveToBackIfKnown(nint window)
+    {
+        if (_order.Remove(window))
+        {
+            _order.Add(window);
+        }
+    }
+
     /// <summary>Returns false if the window wasn't in the list.</summary>
     public bool Remove(nint window) => _order.Remove(window);
 

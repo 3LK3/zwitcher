@@ -11,6 +11,9 @@ public enum WindowEventKind
     /// <summary>The window was destroyed.</summary>
     Destroyed,
 
-    /// <summary>The window was shown, hidden, cloaked, uncloaked or got a new title.</summary>
+    /// <summary>The window was hidden.</summary>
+    Hidden,
+
+    /// <summary>The window was shown, cloaked, uncloaked or got a new title.</summary>
     Changed,
 }

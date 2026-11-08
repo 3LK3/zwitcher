@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Zwitcher.Core.WindowList;
 
 namespace Zwitcher.Core.Tests;
@@ -8,7 +9,7 @@ public sealed class WindowTrackerTests
 
     private WindowTracker Started(FakeWindowQuery query)
     {
-        var tracker = new WindowTracker(query, _events);
+        var tracker = new WindowTracker(query, _events, NullLogger<WindowTracker>.Instance);
         tracker.Start();
         return tracker;
     }
@@ -94,13 +95,73 @@ public sealed class WindowTrackerTests
         var query = new FakeWindowQuery(
             new FakeWindow(1),
             new FakeWindow(2) { LastActivePopup = 9 },
-            new FakeWindow(9) { RootOwner = 2 }
+            new FakeWindow(9) { Owner = 2, RootOwner = 2 }
         );
         var tracker = Started(query);
 
         _events.Raise(WindowEventKind.Foreground, 9);
 
         Assert.Equal([2, 1], Handles(tracker));
+    }
+
+    [Fact]
+    public void Focusing_an_owned_app_window_does_not_promote_its_owner()
+    {
+        // 2 is an app window owned by 3, and both are listed.
+        var query = new FakeWindowQuery(
+            new FakeWindow(1),
+            new FakeWindow(2)
+            {
+                Owner = 3,
+                RootOwner = 3,
+                ExStyle = WindowExStyle.AppWindow,
+            },
+            new FakeWindow(3)
+        );
+        var tracker = Started(query);
+
+        _events.Raise(WindowEventKind.Foreground, 3);
+        _events.Raise(WindowEventKind.Foreground, 1);
+        _events.Raise(WindowEventKind.Foreground, 2);
+
+        Assert.Equal([2, 1, 3], Handles(tracker));
+    }
+
+    [Fact]
+    public void A_dialog_under_a_hidden_owner_counts_for_the_listed_window()
+    {
+        // Dialog 9 is owned by window 2, which is owned by the hidden window 8.
+        var query = new FakeWindowQuery(
+            new FakeWindow(1),
+            new FakeWindow(2) { Owner = 8, RootOwner = 8 },
+            new FakeWindow(8) { Visible = false, LastActivePopup = 2 },
+            new FakeWindow(9) { Owner = 2, RootOwner = 8 }
+        );
+        var tracker = Started(query);
+
+        _events.Raise(WindowEventKind.Foreground, 9);
+
+        Assert.Equal([2, 1], Handles(tracker));
+    }
+
+    [Fact]
+    public void A_foreground_child_counts_for_its_root()
+    {
+        var query = ThreeWindows();
+        // Invisible, because the fake enumerates it like a top-level window.
+        query.Windows.Add(
+            new FakeWindow(9)
+            {
+                TopLevel = false,
+                Root = 3,
+                Visible = false,
+            }
+        );
+        var tracker = Started(query);
+
+        _events.Raise(WindowEventKind.Foreground, 9);
+
+        Assert.Equal([3, 1, 2], Handles(tracker));
     }
 
     [Fact]
@@ -123,6 +184,42 @@ public sealed class WindowTrackerTests
         _events.Raise(WindowEventKind.MinimizeStart, 1);
 
         Assert.Equal([2, 3, 1], Handles(tracker));
+    }
+
+    [Fact]
+    public void Hiding_moves_a_window_to_the_back()
+    {
+        var tracker = Started(ThreeWindows());
+
+        _events.Raise(WindowEventKind.Hidden, 1);
+
+        Assert.Equal([2, 3, 1], Handles(tracker));
+    }
+
+    [Fact]
+    public void A_window_hidden_while_focused_comes_back_behind_the_last_used_one()
+    {
+        var query = ThreeWindows();
+        var tracker = Started(query);
+
+        // 1 has focus and hides to the tray, 2 gets focus, then 1 is shown without focus.
+        _events.Raise(WindowEventKind.Hidden, 1);
+        _events.Raise(WindowEventKind.Foreground, 2);
+        _events.Raise(WindowEventKind.Changed, 1);
+
+        Assert.Equal([2, 3, 1], Handles(tracker));
+    }
+
+    [Fact]
+    public void Hiding_a_top_level_window_raises_WindowsChanged()
+    {
+        var tracker = Started(ThreeWindows());
+        var raised = 0;
+        tracker.WindowsChanged += () => raised++;
+
+        _events.Raise(WindowEventKind.Hidden, 2);
+
+        Assert.Equal(1, raised);
     }
 
     [Fact]

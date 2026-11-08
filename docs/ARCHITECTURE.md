@@ -122,14 +122,23 @@ can't go stale, and a missed event costs order at worst, not a wrong list.
   / `CHILDID_SELF`). Our own process isn't skipped, because the settings window belongs in
   the MRU list. Showing the overlay does report a change, which the controller finds
   unchanged, at the cost of one snapshot per open.
-  - `EVENT_SYSTEM_FOREGROUND`: move the window and its root owner to the front. A dialog
-    isn't listed, so using it counts for its owner. Doesn't raise `WindowsChanged`, so rows
-    don't reorder while tabbing.
+  - `EVENT_SYSTEM_FOREGROUND`: move exactly one window to the front: the first eligible one
+    up the owner chain (`GW_OWNER`), starting at the root (`GA_ROOT`) of the reported window,
+    or that root itself if none is eligible. A dialog isn't listed, so using it counts for its
+    owner. The owner of a listed window isn't moved too, or the previously used window would
+    lose the second place. Doesn't raise `WindowsChanged`, so rows don't reorder while
+    tabbing. Debug builds log each one (reported and credited handle), next to the tray's
+    *Dump windows*, to diagnose ordering.
   - `EVENT_SYSTEM_MINIMIZESTART`: move the window to the back.
+  - `EVENT_OBJECT_HIDE`: move a known window to the back, like minimizing, so a window that
+    hid itself (to the tray) and comes back without focus doesn't sit in front. Unknown windows
+    aren't added: hide also fires for menus and tooltips. Then like `SHOW` below.
   - `EVENT_OBJECT_DESTROY`: remove the window, so a reused handle can't inherit its rank.
     Raises `WindowsChanged` if it was known.
-  - `EVENT_OBJECT_SHOW` / `HIDE` / `NAMECHANGE` / `CLOAKED` / `UNCLOAKED`: raise
+  - `EVENT_OBJECT_SHOW` / `NAMECHANGE` / `CLOAKED` / `UNCLOAKED`: raise
     `WindowsChanged` for top-level windows.
+- A window that never had focus goes last. Placing it by z-order instead would put a
+  never-focused always-on-top window in front and break the second place.
 - Exposes `Snapshot()`, `IsForeground(window)` and an event `WindowsChanged`.
 - WinEvents can arrive during any message pumping, so `WindowsChanged` never calls the
   controller. The app posts `SwitcherCommand.WindowsChanged` instead, only while

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Zwitcher.Core.WindowList;
 
 /// <summary>
@@ -5,8 +7,15 @@ namespace Zwitcher.Core.WindowList;
 /// Snapshot enumerates, so titles and eligibility can't go stale, and a missed event costs
 /// order at worst, not a wrong list.
 /// </summary>
-public sealed class WindowTracker(IWindowQuery query, IWindowEventSource events) : IWindowTracker
+public sealed class WindowTracker(
+    IWindowQuery query,
+    IWindowEventSource events,
+    ILogger<WindowTracker> logger
+) : IWindowTracker
 {
+    // Real owner chains are short. The cap only stops odd data from looping forever.
+    private const int MaxOwnerWalk = 32;
+
     private readonly WindowFilter _filter = new(query);
     private readonly MruList _mru = new();
 
@@ -52,9 +61,7 @@ public sealed class WindowTracker(IWindowQuery query, IWindowEventSource events)
         switch (kind)
         {
             case WindowEventKind.Foreground:
-                // A dialog isn't listed, its owner is. So using the dialog counts for the owner.
-                _mru.MoveToFront(query.GetRootOwner(window));
-                _mru.MoveToFront(window);
+                OnForeground(window);
                 break;
             case WindowEventKind.MinimizeStart:
                 _mru.MoveToBack(window);
@@ -67,13 +74,68 @@ public sealed class WindowTracker(IWindowQuery query, IWindowEventSource events)
                 }
 
                 break;
-            case WindowEventKind.Changed:
-                if (query.IsTopLevel(window))
-                {
-                    WindowsChanged?.Invoke();
-                }
-
+            case WindowEventKind.Hidden:
+                // Like minimizing: a window that hid itself (e.g. to the tray) and comes back
+                // without focus must not sit in front of the window that was really used last.
+                // Only known windows, because hide events also fire for menus and tooltips.
+                _mru.MoveToBackIfKnown(window);
+                RaiseIfTopLevel(window);
                 break;
+            case WindowEventKind.Changed:
+                RaiseIfTopLevel(window);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Focus counts for exactly one window: the listed one. Moving its owner too would push the
+    /// previously used window out of the second place.
+    /// </summary>
+    private void OnForeground(nint window)
+    {
+        var credited = ListedWindowFor(window);
+        _mru.MoveToFront(credited);
+
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            logger.LogDebug(
+                "Foreground {Handle} credited to {Credited} \"{Title}\"",
+                window,
+                credited,
+                query.GetTitle(credited)
+            );
+        }
+    }
+
+    /// <summary>
+    /// The first eligible window up the owner chain, starting at the root of the reported
+    /// window. A dialog isn't listed but its owner is, so using the dialog counts for the owner.
+    /// Falls back to the window itself, which may become eligible later (e.g. once it has a title).
+    /// </summary>
+    private nint ListedWindowFor(nint window)
+    {
+        var root = query.GetRoot(window);
+        var start = root != 0 ? root : window;
+
+        var current = start;
+        for (var i = 0; i < MaxOwnerWalk && current != 0; i++)
+        {
+            if (_filter.IsEligible(current))
+            {
+                return current;
+            }
+
+            current = query.GetOwner(current);
+        }
+
+        return start;
+    }
+
+    private void RaiseIfTopLevel(nint window)
+    {
+        if (query.IsTopLevel(window))
+        {
+            WindowsChanged?.Invoke();
         }
     }
 }

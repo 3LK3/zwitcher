@@ -76,7 +76,11 @@ public sealed partial class App : Application
         startup.RepairPath();
 
         _windowEvents = new Win32WindowEventSource();
-        var tracker = new WindowTracker(new Win32WindowQuery(), _windowEvents);
+        var tracker = new WindowTracker(
+            new Win32WindowQuery(),
+            _windowEvents,
+            _loggerFactory!.CreateLogger<WindowTracker>()
+        );
         tracker.Start();
 
         var overlay = CreateOverlay(settings.Current);

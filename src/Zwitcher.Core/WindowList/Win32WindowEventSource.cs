@@ -82,6 +82,7 @@ public sealed class Win32WindowEventSource : IWindowEventSource, IDisposable
             EventForeground => WindowEventKind.Foreground,
             EventMinimizeStart => WindowEventKind.MinimizeStart,
             EventObjectDestroy => WindowEventKind.Destroyed,
+            EventObjectHide => WindowEventKind.Hidden,
             _ => WindowEventKind.Changed,
         };
         WindowEvent?.Invoke(kind, window);
