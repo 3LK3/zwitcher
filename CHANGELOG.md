@@ -4,6 +4,15 @@ All notable changes to Zwitcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Settings and About are now one window with a *General* and an *About* page, and the tray
+  menu has a single *Settings* item. It opens as a flyout in the bottom-right corner, directly
+  above the taskbar, and closes when you click elsewhere. Left-click the tray icon to open it.
+- The settings window follows the Windows light or dark mode.
+
 ## [1.0.0] - 2026-11-08
 
 First release.

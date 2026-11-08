@@ -2,38 +2,80 @@
     x:Class="Zwitcher.App.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Zwitcher Settings"
+    Title="Zwitcher"
+    Width="520"
+    Height="340"
     ResizeMode="NoResize"
-    SizeToContent="WidthAndHeight"
-    WindowStartupLocation="CenterScreen"
+    ShowInTaskbar="False"
+    Topmost="True"
+    WindowStyle="None"
 >
-    <StackPanel Width="280" Margin="16">
-        <CheckBox
-            x:Name="EnabledBox"
-            Margin="0,0,0,8"
-            Click="OnEnabledClicked"
-            Content="Replace Alt+Tab"
+    <!-- No caption and no resize border, but a glass frame of 1, so DWM keeps the shadow
+         that a WindowStyle=None window otherwise loses. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome
+            CaptionHeight="0"
+            GlassFrameThickness="1"
+            ResizeBorderThickness="0"
+            UseAeroCaptionButtons="False"
         />
-        <CheckBox
-            x:Name="StartupBox"
-            Margin="0,0,0,16"
-            Click="OnStartupClicked"
-            Content="Start with Windows"
+    </WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Grid.Column="0"
+            Margin="16,12,0,8"
+            VerticalAlignment="Center"
+            FontWeight="SemiBold"
+            Text="Zwitcher"
         />
-        <TextBlock Margin="0,0,0,4" Text="Show on" />
-        <ComboBox
-            x:Name="ShowOnBox"
-            Margin="0,0,0,12"
-            DisplayMemberPath="Label"
-            SelectedValuePath="Value"
-            SelectionChanged="OnShowOnChanged"
+        <Button
+            Grid.Row="0"
+            Grid.Column="1"
+            Width="32"
+            Height="32"
+            Margin="0,4,4,0"
+            Padding="0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="OnCloseClicked"
+            Content="&#xE8BB;"
+            FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+            FontSize="10"
+            ToolTip="Close"
         />
-        <TextBlock Margin="0,0,0,4" Text="Layout" />
-        <ComboBox
-            x:Name="LayoutBox"
-            DisplayMemberPath="Label"
-            SelectedValuePath="Value"
-            SelectionChanged="OnLayoutChanged"
-        />
-    </StackPanel>
+
+        <ListBox
+            x:Name="Nav"
+            Grid.Row="1"
+            Grid.Column="0"
+            Margin="8,0,8,8"
+            Background="Transparent"
+            BorderThickness="0"
+            SelectionChanged="OnNavChanged"
+        >
+            <ListBoxItem x:Name="GeneralItem" Content="General" />
+            <ListBoxItem x:Name="AboutItem" Content="About" />
+        </ListBox>
+
+        <ScrollViewer
+            Grid.Row="1"
+            Grid.Column="1"
+            Padding="12,0,20,16"
+            VerticalScrollBarVisibility="Auto"
+        >
+            <ContentControl x:Name="PageHost" Focusable="False" />
+        </ScrollViewer>
+    </Grid>
 </Window>

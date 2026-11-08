@@ -3,6 +3,15 @@ using System.Windows.Forms;
 
 namespace Zwitcher.App;
 
+/// <summary>A request to open the settings flyout at the tray icon (physical pixels).</summary>
+/// <param name="FromIconClick">A left-click on the icon, as opposed to a menu item.</param>
+public sealed record SettingsRequest(
+    SettingsPage Page,
+    int AnchorX,
+    int AnchorY,
+    bool FromIconClick
+);
+
 /// <summary>Notification-area icon and its menu. WPF has no tray API, so this wraps NotifyIcon.</summary>
 public sealed class TrayIcon : IDisposable
 {
@@ -13,6 +22,9 @@ public sealed class TrayIcon : IDisposable
     private readonly Icon _image;
     private readonly ToolStripMenuItem _enabled;
     private readonly ToolStripMenuItem _update;
+
+    /// <summary>Where the icon was last clicked, in physical pixels. Kept for keyboard use.</summary>
+    private Point _anchor = Cursor.Position;
 
     public TrayIcon()
     {
@@ -35,12 +47,7 @@ public sealed class TrayIcon : IDisposable
         _enabled = new ToolStripMenuItem("Enabled") { Checked = true, CheckOnClick = true };
         _enabled.CheckedChanged += (_, _) => EnabledChanged?.Invoke(this, _enabled.Checked);
         _menu.Items.Add(_enabled);
-        _menu.Items.Add(
-            "Settings",
-            null,
-            (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty)
-        );
-        _menu.Items.Add("About", null, (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty));
+        _menu.Items.Add("Settings", null, (_, _) => RequestSettings(SettingsPage.General, false));
         _menu.Items.Add("Exit", null, (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty));
 
         _image = LoadIcon();
@@ -50,6 +57,17 @@ public sealed class TrayIcon : IDisposable
             Text = "Zwitcher",
             ContextMenuStrip = _menu,
             Visible = true,
+        };
+        // The cursor is on the icon when the button goes down. By the time a menu item is
+        // clicked it's on the menu, so the anchor is captured here. NotifyIcon doesn't expose
+        // its rectangle (Shell_NotifyIconGetRect needs its private window handle).
+        _icon.MouseDown += (_, _) => _anchor = Cursor.Position;
+        _icon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                RequestSettings(SettingsPage.General, true);
+            }
         };
         _icon.BalloonTipClicked += (_, _) =>
         {
@@ -68,9 +86,7 @@ public sealed class TrayIcon : IDisposable
 
     public event EventHandler<bool>? EnabledChanged;
 
-    public event EventHandler? SettingsRequested;
-
-    public event EventHandler? AboutRequested;
+    public event EventHandler<SettingsRequest>? SettingsRequested;
 
     public event EventHandler? ExitRequested;
 
@@ -113,6 +129,12 @@ public sealed class TrayIcon : IDisposable
         // NotifyIcon does not take ownership of the Icon assigned to it.
         _image.Dispose();
     }
+
+    private void RequestSettings(SettingsPage page, bool fromIconClick) =>
+        SettingsRequested?.Invoke(
+            this,
+            new SettingsRequest(page, _anchor.X, _anchor.Y, fromIconClick)
+        );
 
     private static Icon LoadIcon()
     {

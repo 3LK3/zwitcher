@@ -47,3 +47,6 @@ ReleaseDC
 GetDIBits
 MonitorFromWindow
 GetCursorPos
+DwmSetWindowAttribute
+DWMWINDOWATTRIBUTE
+DWM_WINDOW_CORNER_PREFERENCE

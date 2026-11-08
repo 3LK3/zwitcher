@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -28,7 +27,10 @@ public sealed partial class App : Application
     private MessageWindow? _messageWindow;
     private TrayIcon? _tray;
     private KeyboardHook? _hook;
+    private const long ReopenAfterCloseMs = 300;
+
     private SettingsWindow? _settingsWindow;
+    private long _settingsClosedAt = long.MinValue / 2;
     private RollingFileTraceListener? _log;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -71,8 +73,7 @@ public sealed partial class App : Application
         var tray = new TrayIcon();
         tray.SetEnabled(settings.Current.Enabled);
         tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
-        tray.SettingsRequested += (_, _) => ShowSettings(settings, startup);
-        tray.AboutRequested += (_, _) => ShowAbout();
+        tray.SettingsRequested += (_, request) => ShowSettings(settings, startup, request);
         tray.ExitRequested += (_, _) => Shutdown();
         _tray = tray;
 
@@ -161,18 +162,39 @@ public sealed partial class App : Application
     }
 #endif
 
-    private void ShowSettings(SettingsService settings, StartupRegistration startup)
+    private void ShowSettings(
+        SettingsService settings,
+        StartupRegistration startup,
+        SettingsRequest request
+    )
     {
         if (_settingsWindow is { } open)
         {
+            open.ShowPage(request.Page);
             open.Activate();
             return;
         }
 
+        // Clicking the icon while the flyout is open first deactivates the flyout, which closes
+        // it, and then delivers the click. Without this, the click would reopen it right away
+        // instead of toggling it off, unlike the system flyouts.
+        if (
+            request.FromIconClick
+            && Environment.TickCount64 - _settingsClosedAt < ReopenAfterCloseMs
+        )
+        {
+            return;
+        }
+
         var window = new SettingsWindow(settings, startup);
-        window.Closed += (_, _) => _settingsWindow = null;
+        window.Closed += (_, _) =>
+        {
+            _settingsWindow = null;
+            _settingsClosedAt = Environment.TickCount64;
+        };
         _settingsWindow = window;
-        window.Show();
+        window.ShowPage(request.Page);
+        window.ShowAt(request.AnchorX, request.AnchorY);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -199,7 +221,7 @@ public sealed partial class App : Application
         _log = new RollingFileTraceListener(RollingFileTraceListener.DefaultDirectory);
         Trace.Listeners.Add(_log);
         Trace.TraceInformation(
-            $"Zwitcher {Version()} started on Windows {Environment.OSVersion.Version}, exe {Environment.ProcessPath}"
+            $"Zwitcher {AppInfo.Version()} started on Windows {Environment.OSVersion.Version}, exe {Environment.ProcessPath}"
         );
     }
 
@@ -273,26 +295,6 @@ public sealed partial class App : Application
         }
     }
 #endif
-
-    private static void ShowAbout()
-    {
-        MessageBox.Show(
-            $"Zwitcher {Version()}\n\nLogs: {RollingFileTraceListener.DefaultDirectory}",
-            "About Zwitcher"
-        );
-    }
-
-    /// <summary>SemVer plus the short commit, e.g. 1.0.0+abc1234. The SDK appends the commit.</summary>
-    private static string Version()
-    {
-        var version =
-            typeof(App)
-                .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-                ?.InformationalVersion
-            ?? "unknown";
-        var plus = version.IndexOf('+');
-        return plus >= 0 && version.Length > plus + 8 ? version[..(plus + 8)] : version;
-    }
 
     [STAThread]
     private static void Main(string[] args)

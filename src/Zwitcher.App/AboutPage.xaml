@@ -1,0 +1,24 @@
+<UserControl
+    x:Class="Zwitcher.App.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+>
+    <StackPanel>
+        <TextBlock Margin="0,0,0,12" FontSize="20" FontWeight="SemiBold" Text="About" />
+        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+            <Image x:Name="AppIcon" Width="48" Height="48" Margin="0,0,12,0" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock FontSize="16" FontWeight="SemiBold" Text="Zwitcher" />
+                <TextBlock x:Name="VersionText" Opacity="0.7" />
+            </StackPanel>
+        </StackPanel>
+        <TextBlock Margin="0,0,0,4" Text="A compact Alt+Tab replacement for Windows." />
+        <TextBlock Margin="0,0,0,16" Opacity="0.7" Text="© 2026 Sören Spindler · MIT License" />
+        <TextBlock Margin="0,0,0,12">
+            <Hyperlink Click="OnRepositoryClicked">
+                <Run x:Name="RepositoryText" />
+            </Hyperlink>
+        </TextBlock>
+        <Button HorizontalAlignment="Left" Click="OnOpenLogsClicked" Content="Open logs folder" />
+    </StackPanel>
+</UserControl>

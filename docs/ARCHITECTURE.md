@@ -251,6 +251,24 @@ is logged, and the setting still applies until the next start.
 Start with Windows isn't in `Settings`. `StartupRegistration` reads and writes the HKCU `Run`
 key directly, so the two can't disagree. At startup it follows the exe if it moved.
 
+The UI is `SettingsWindow`, a flyout with a left nav for two pages, `GeneralPage` (the
+settings) and `AboutPage` (version, license, repository link, logs folder). A left-click on
+the tray icon or the tray item *Settings* opens it. Like the system flyouts, it sits in the
+corner of the screen directly above the taskbar and closes when it loses focus, on Esc or on
+its close button. It's created for each opening and closed afterwards.
+- `TrayIcon` remembers the cursor position on mouse-down as the anchor (in physical pixels;
+  the app is PerMonitorV2). It picks the monitor: the one whose taskbar was clicked.
+- `FlyoutPlacement` (Core, pure, tested) finds the taskbar edge from the monitor's work area,
+  or for an auto-hidden taskbar from the monitor edge nearest to the anchor. It pins the
+  flyout, flush, to the work-area corner at the tray end of that edge: bottom-right for a
+  bottom taskbar.
+- `FlyoutNative` reads the monitor and its DPI, and asks DWM for rounded corners (Windows 11).
+  The window is placed with `SetWindowPos` before `Show`, so it doesn't jump.
+- A click on the icon while the flyout is open first deactivates (closes) it. `App` ignores
+  icon clicks within 300 ms of a close, so the click toggles it off instead of reopening it.
+- Only this window uses WPF's Fluent theme (`ThemeMode.System`, light/dark like Windows). The
+  overlay keeps its own look.
+
 ### Logging (Core/Diagnostics)
 Code logs through `System.Diagnostics.Trace` (`TraceInformation`, `TraceWarning`,
 `TraceError`), so Core needs no logger of its own and no static state. At startup the App adds
@@ -368,7 +386,8 @@ process. Unobserved task exceptions are only logged.
 | CsWin32 wrappers, `NativeMethods.txt` | `Zwitcher.Core/Interop` |
 | `RollingFileTraceListener` | `Zwitcher.Core/Diagnostics` |
 | `Settings`, `ISettingsStore`, `JsonSettingsStore`, `SettingsService`, `StartupRegistration` | `Zwitcher.Core` |
-| `OverlayWindow` (implements `IOverlayView`), `SettingsWindow`, message window, tray | `Zwitcher.App` |
+| `FlyoutPlacement`, `FlyoutNative` | `Zwitcher.Core` |
+| `OverlayWindow` (implements `IOverlayView`), `SettingsWindow` with `GeneralPage` and `AboutPage`, message window, tray | `Zwitcher.App` |
 | Launcher (Velopack's main exe, starts the app via ShellExecute) | `Zwitcher.Launcher` |
 
 ## Testing
