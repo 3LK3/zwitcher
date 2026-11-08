@@ -184,7 +184,7 @@ interface IOverlayView
 }
 ```
 The WPF implementation is a pre-created, hidden, borderless, topmost window. It
-only renders what it is told. It also places DWM thumbnails (see [Thumbnails](#thumbnails)).
+only renders what it is told. DWM thumbnails are planned, not built yet (see [Thumbnails](#thumbnails)).
 
 - **Alt+Tab:** the window sets `WS_EX_TOOLWINDOW`, which keeps it out of native Alt+Tab
   and out of `WindowFilter`.
@@ -293,7 +293,7 @@ flushes and closes the file. `ZwitcherLog` (Core) holds only the location,
 - File sink: rolls over at 1 MB and keeps 5 files including the current one. Serilog swallows
   its own write errors: logging must never take the app down.
 - Release logs `Information` and up. Debug builds log everything (`Verbose`) and also write to
-  the debugger output. A console sink exists for development but is off by default.
+  the debugger output.
 - Use message templates with PascalCase properties (`"Failed for {Handle}"`), not
   interpolated strings, and pass exceptions as the first argument. Guard `Trace`/`Debug`
   calls on hot paths with `IsEnabled`; the overlay's show-time line is also `#if DEBUG`.
@@ -302,8 +302,9 @@ flushes and closes the file. `ZwitcherLog` (Core) holds only the location,
   the logging path, not in our state.
 
 ### Updates (App/Updates)
-`AppUpdater` wraps Velopack's `UpdateManager` with a `GithubSource`. At startup (Release
-builds only) `App` starts `UpdateFlow` once, fire-and-forget, so a slow network never delays the hook.
+`UpdateFlow` uses Velopack's `UpdateManager` with a `GithubSource` for `AppInfo.RepositoryUrl`.
+At startup (Release builds only) `App` starts it once, fire-and-forget, so a slow network never
+delays the hook.
 It does nothing when the app wasn't installed by Velopack. If an update exists, `TrayIcon`
 shows a balloon and an *Update to x* menu item. Only a click downloads the update and calls
 `ApplyUpdatesAndRestart`; nothing is installed unasked. Not part of the controller or the
@@ -363,6 +364,8 @@ User            Hook thread            UI thread
 
 ## Thumbnails
 
+Not implemented yet. This is the design the view follows when they are added.
+
 - Thumbnails are drawn by DWM onto the overlay HWND via `DwmRegisterThumbnail`.
 - The view reserves an empty placeholder element per item, converts its bounds
   to device pixels (per-monitor DPI aware), and calls
@@ -410,10 +413,10 @@ Folders are features; namespaces follow folders.
 | `SingleInstanceGuard`, `ZwitcherLog` | `Zwitcher.Core` |
 | `App` (composition root), `AppInfo`, `MessageWindow` | `Zwitcher.App` |
 | `OverlayWindow` (implements `IOverlayView`), `OverlayRow`, `WindowIconCache` | `Zwitcher.App/Overlay` |
-| `SettingsWindow`, `GeneralPage`, `AboutPage`, `SettingsFlyoutOpener` | `Zwitcher.App/SettingsUi` |
-| `TrayIcon`, `SettingsRequest` | `Zwitcher.App/Tray` |
-| `AppUpdater`, `UpdateFlow` | `Zwitcher.App/Updates` |
-| `DebugCommands` (Debug builds only) | `Zwitcher.App/Debugging` |
+| `SettingsWindow`, `GeneralPage`, `AboutPage`, `SettingsFlyoutOpener`, `SettingsRequest`, `SettingsPage` | `Zwitcher.App/SettingsUi` |
+| `TrayIcon` | `Zwitcher.App/Tray` |
+| `UpdateFlow` | `Zwitcher.App/Updates` |
+| `DebugCommands` (Debug builds only; adds its tray items through `TrayIcon.AddMenuItem`) | `Zwitcher.App/Debugging` |
 | Launcher (Velopack's main exe, starts the app via ShellExecute) | `Zwitcher.Launcher` |
 
 ## Naming

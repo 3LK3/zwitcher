@@ -6,7 +6,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Logging;
 using Zwitcher.Core;
 
-namespace Zwitcher.App.Settings;
+namespace Zwitcher.App.SettingsUi;
 
 public sealed partial class AboutPage : UserControl
 {

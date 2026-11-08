@@ -16,7 +16,7 @@ public sealed class MonitorInfoTests
     {
         var monitor = WithWorkArea(0, 0, 1920, 1040);
 
-        Assert.Equal((720, 420), monitor.Center(480, 200));
+        Assert.Equal(new PixelPoint(720, 420), monitor.Center(480, 200));
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public sealed class MonitorInfoTests
     {
         var monitor = WithWorkArea(-1920, -200, 1920, 1080);
 
-        Assert.Equal((-1200, 240), monitor.Center(480, 200));
+        Assert.Equal(new PixelPoint(-1200, 240), monitor.Center(480, 200));
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class MonitorInfoTests
     {
         var monitor = WithWorkArea(100, 50, 800, 600);
 
-        Assert.Equal((100, 50), monitor.Center(1000, 700));
+        Assert.Equal(new PixelPoint(100, 50), monitor.Center(1000, 700));
     }
 
     [Fact]
@@ -44,6 +44,6 @@ public sealed class MonitorInfoTests
             96
         );
 
-        Assert.Equal((720, 420), monitor.Center(480, 200));
+        Assert.Equal(new PixelPoint(720, 420), monitor.Center(480, 200));
     }
 }

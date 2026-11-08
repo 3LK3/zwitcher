@@ -18,8 +18,6 @@ namespace Zwitcher.App.Overlay;
 /// </summary>
 public sealed partial class OverlayWindow : Window, IOverlayView
 {
-    private const double DefaultDpi = 96;
-
     // Of the work area. Longer lists scroll.
     private const double MaxHeightShare = 0.8;
 
@@ -33,14 +31,12 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     private ShowOnMonitor _showOn;
     private double _width;
 
-    public OverlayWindow(ILogger<OverlayWindow> logger)
+    public OverlayWindow(Settings settings, ILogger<OverlayWindow> logger)
     {
         InitializeComponent();
 
         _logger = logger;
-
-        var defaults = new Core.Configuration.Settings();
-        ApplySettings(defaults.ShowOn, defaults.Layout);
+        ApplySettings(settings);
     }
 
     public event Action<int>? ItemClicked;
@@ -49,9 +45,10 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     /// Takes effect on the next open. A layout is a set of resources in the XAML, so a new one
     /// needs no code here and no change in the controller.
     /// </summary>
-    public void ApplySettings(ShowOnMonitor showOn, OverlayLayout layout)
+    public void ApplySettings(Settings settings)
     {
-        _showOn = showOn;
+        var layout = settings.Layout;
+        _showOn = settings.ShowOn;
         _width = (double)FindResource($"{layout}Width");
         Rows.ItemsPanel = (ItemsPanelTemplate)FindResource($"{layout}Panel");
         Rows.ItemTemplate = (DataTemplate)FindResource($"{layout}Item");
@@ -218,7 +215,7 @@ public sealed partial class OverlayWindow : Window, IOverlayView
         // not its ancestors, so the call exits early. UpdateLayout processes them first.
         Panel.UpdateLayout();
         Panel.Measure(new Size(_width, double.PositiveInfinity));
-        var scale = monitor.Dpi / DefaultDpi;
+        var scale = monitor.Scale;
         Width = _width;
         Height = Math.Min(
             Panel.DesiredSize.Height,
@@ -234,12 +231,14 @@ public sealed partial class OverlayWindow : Window, IOverlayView
     /// <summary>A window without an icon gets the fallback, and maybe its package icon later.</summary>
     private void LoadIcon(OverlayRow row)
     {
-        row.Icon = _icons.Load(row.Handle);
-        if (row.Icon is null)
+        if (_icons.Load(row.Handle) is { } icon)
         {
-            row.Icon = WindowIconCache.Fallback;
-            _icons.LoadPackaged(row.Handle, icon => row.Icon = icon);
+            row.Icon = icon;
+            return;
         }
+
+        row.Icon = WindowIconCache.Fallback;
+        _icons.LoadPackaged(row.Handle, packaged => row.Icon = packaged);
     }
 
     /// <summary>

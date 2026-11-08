@@ -1,8 +1,7 @@
 using Microsoft.Extensions.Logging;
-using Zwitcher.App.Tray;
 using Zwitcher.Core.Configuration;
 
-namespace Zwitcher.App.Settings;
+namespace Zwitcher.App.SettingsUi;
 
 /// <summary>
 /// Opens the settings flyout for a tray request, or brings the open one forward. At most one
@@ -44,6 +43,6 @@ public sealed class SettingsFlyoutOpener(
         };
         _window = window;
         window.ShowPage(request.Page);
-        window.ShowAt(request.AnchorX, request.AnchorY);
+        window.ShowAt(request.Anchor);
     }
 }

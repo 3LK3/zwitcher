@@ -10,10 +10,10 @@ namespace Zwitcher.Core.Screen;
 public static class Monitors
 {
     /// <summary>The monitor at a screen point, or the nearest one if the point is off-screen.</summary>
-    public static MonitorInfo AtPoint(int x, int y) =>
+    public static MonitorInfo AtPoint(PixelPoint point) =>
         Describe(
             PInvoke.MonitorFromPoint(
-                new System.Drawing.Point(x, y),
+                new System.Drawing.Point(point.X, point.Y),
                 MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST
             )
         );

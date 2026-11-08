@@ -7,7 +7,6 @@ internal sealed record FakeWindow(nint Handle)
     public bool Visible { get; init; } = true;
     public bool Cloaked { get; init; }
     public bool Shell { get; init; }
-    public bool TopLevel { get; init; } = true;
     public WindowExStyle ExStyle { get; init; }
     public nint? Root { get; init; }
     public nint Owner { get; init; }
@@ -29,8 +28,6 @@ internal sealed class FakeWindowQuery(params FakeWindow[] windows) : IWindowQuer
     public IReadOnlyList<nint> EnumerateTopLevel() => [.. Windows.Select(w => w.Handle)];
 
     public nint GetForegroundWindow() => Foreground;
-
-    public bool IsTopLevel(nint window) => Get(window).TopLevel;
 
     public nint GetRoot(nint window) => Get(window).Root ?? window;
 

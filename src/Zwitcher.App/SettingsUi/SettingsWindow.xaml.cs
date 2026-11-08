@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using Zwitcher.Core.Configuration;
 using Zwitcher.Core.Screen;
 
-namespace Zwitcher.App.Settings;
+namespace Zwitcher.App.SettingsUi;
 
 /// <summary>
 /// Settings and About in one flyout that opens next to the tray icon and closes when it loses
@@ -51,15 +51,15 @@ public sealed partial class SettingsWindow : Window
     /// tray icon, in physical pixels), then shows and activates it. Placing before showing
     /// avoids a visible jump.
     /// </summary>
-    public void ShowAt(int anchorX, int anchorY)
+    public void ShowAt(PixelPoint anchor)
     {
         var handle = new WindowInteropHelper(this).EnsureHandle();
-        var monitor = Monitors.AtPoint(anchorX, anchorY);
-        var scale = monitor.Dpi / 96.0;
+        var monitor = Monitors.AtPoint(anchor);
+        var scale = monitor.Scale;
         var width = (int)Math.Round(Width * scale);
         var height = (int)Math.Round(Height * scale);
         var (x, y) = FlyoutPlacement.Compute(
-            new PixelPoint(anchorX, anchorY),
+            anchor,
             monitor.Bounds,
             monitor.WorkArea,
             width,

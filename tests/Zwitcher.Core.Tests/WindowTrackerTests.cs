@@ -149,14 +149,7 @@ public sealed class WindowTrackerTests
     {
         var query = ThreeWindows();
         // Invisible, because the fake enumerates it like a top-level window.
-        query.Windows.Add(
-            new FakeWindow(9)
-            {
-                TopLevel = false,
-                Root = 3,
-                Visible = false,
-            }
-        );
+        query.Windows.Add(new FakeWindow(9) { Root = 3, Visible = false });
         var tracker = Started(query);
 
         _events.Raise(WindowEventKind.Foreground, 9);
@@ -283,7 +276,7 @@ public sealed class WindowTrackerTests
     public void Changes_of_child_windows_do_not_raise_WindowsChanged()
     {
         var query = ThreeWindows();
-        query.Windows.Add(new FakeWindow(9) { TopLevel = false });
+        query.Windows.Add(new FakeWindow(9) { Root = 1 });
         var tracker = Started(query);
         var raised = 0;
         tracker.WindowsChanged += () => raised++;

@@ -78,7 +78,7 @@ public sealed class WindowTracker(
                 // Like minimizing: a window that hid itself (e.g. to the tray) and comes back
                 // without focus must not sit in front of the window that was really used last.
                 // Only known windows, because hide events also fire for menus and tooltips.
-                _mru.MoveToBackIfKnown(window);
+                _mru.MoveToBack(window);
                 RaiseIfTopLevel(window);
                 break;
             case WindowEventKind.Changed:
@@ -133,7 +133,7 @@ public sealed class WindowTracker(
 
     private void RaiseIfTopLevel(nint window)
     {
-        if (query.IsTopLevel(window))
+        if (query.GetRoot(window) == window)
         {
             WindowsChanged?.Invoke();
         }

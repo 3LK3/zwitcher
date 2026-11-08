@@ -11,7 +11,7 @@ public static class FlyoutPlacement
     /// <param name="anchor">
     /// The clicked tray icon. Only needed when the work area doesn't tell the taskbar edge.
     /// </param>
-    public static (int X, int Y) Compute(
+    public static PixelPoint Compute(
         PixelPoint anchor,
         PixelRect monitor,
         PixelRect work,
@@ -27,7 +27,7 @@ public static class FlyoutPlacement
         };
 
         // A flyout larger than the work area starts at its top-left edge.
-        return (Math.Max(work.Left, x), Math.Max(work.Top, y));
+        return new PixelPoint(Math.Max(work.Left, x), Math.Max(work.Top, y));
     }
 
     /// <summary>The side where the work area is smaller than the monitor.</summary>

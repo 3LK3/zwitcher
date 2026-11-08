@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Zwitcher.Core.Configuration;
 
-namespace Zwitcher.App.Settings;
+namespace Zwitcher.App.SettingsUi;
 
 /// <summary>Every change applies and saves immediately, so there's nothing to confirm.</summary>
 public sealed partial class GeneralPage : UserControl
@@ -38,7 +38,7 @@ public sealed partial class GeneralPage : UserControl
     /// <summary>Unsubscribes from the settings. Called by the window when it closes.</summary>
     public void Detach() => _settings.Changed -= Display;
 
-    private void Display(Core.Configuration.Settings settings)
+    private void Display(Settings settings)
     {
         EnabledBox.IsChecked = settings.Enabled;
         ShowOnBox.SelectedValue = settings.ShowOn;

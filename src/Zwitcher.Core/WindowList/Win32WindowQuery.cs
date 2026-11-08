@@ -2,7 +2,6 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
 using Windows.Win32.UI.WindowsAndMessaging;
-using Zwitcher.Core.WindowList;
 
 namespace Zwitcher.Core.WindowList;
 
@@ -24,9 +23,6 @@ public sealed class Win32WindowQuery : IWindowQuery
     }
 
     public nint GetForegroundWindow() => PInvoke.GetForegroundWindow();
-
-    public bool IsTopLevel(nint window) =>
-        PInvoke.GetAncestor((HWND)window, GET_ANCESTOR_FLAGS.GA_ROOT) == (HWND)window;
 
     public nint GetRoot(nint window) =>
         PInvoke.GetAncestor((HWND)window, GET_ANCESTOR_FLAGS.GA_ROOT);

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Velopack;
 using Zwitcher.App.Overlay;
-using Zwitcher.App.Settings;
+using Zwitcher.App.SettingsUi;
 using Zwitcher.App.Tray;
 using Zwitcher.Core;
 using Zwitcher.Core.Configuration;
@@ -50,8 +50,9 @@ public sealed partial class App : Application
             return;
         }
 
-        StartLogging();
-        _logger = _loggerFactory?.CreateLogger<App>();
+        var loggers = StartLogging();
+        _loggerFactory = loggers;
+        _logger = loggers.CreateLogger<App>();
 #pragma warning disable CA1873 // Avoid potentially expensive logging
         _logger?.LogInformation(
             "Zwitcher [{Version}] started on Windows {OsVersion}",
@@ -66,12 +67,12 @@ public sealed partial class App : Application
 
         var settings = new SettingsStore(
             new JsonSettingsFile(JsonSettingsFile.DefaultPath),
-            _loggerFactory!.CreateLogger<SettingsStore>()
+            loggers.CreateLogger<SettingsStore>()
         );
 
         var startup = StartupRegistration.ForCurrentUser(
             Environment.ProcessPath!,
-            _loggerFactory!.CreateLogger<StartupRegistration>()
+            loggers.CreateLogger<StartupRegistration>()
         );
         startup.RepairPath();
 
@@ -79,17 +80,17 @@ public sealed partial class App : Application
         var tracker = new WindowTracker(
             new Win32WindowQuery(),
             _windowEvents,
-            _loggerFactory!.CreateLogger<WindowTracker>()
+            loggers.CreateLogger<WindowTracker>()
         );
         tracker.Start();
 
-        var overlay = CreateOverlay(settings.Current);
+        var overlay = CreateOverlay(settings.Current, loggers);
 
         var activeFlag = new SwitcherActiveFlag();
         var controller = new SwitcherController(
             tracker,
             overlay,
-            new Win32WindowActivator(_loggerFactory!.CreateLogger<Win32WindowActivator>()),
+            new Win32WindowActivator(loggers.CreateLogger<Win32WindowActivator>()),
             activeFlag
         );
         _messageWindow = new MessageWindow(controller.Handle);
@@ -105,7 +106,7 @@ public sealed partial class App : Application
             }
         };
 
-        var settingsFlyout = new SettingsFlyoutOpener(settings, startup, _loggerFactory!);
+        var settingsFlyout = new SettingsFlyoutOpener(settings, startup, loggers);
         var tray = new TrayIcon();
         tray.SetEnabled(settings.Current.Enabled);
         tray.EnabledChanged += (_, enabled) => settings.Update(s => s with { Enabled = enabled });
@@ -119,10 +120,10 @@ public sealed partial class App : Application
             poster,
             activeFlag,
             tracker,
-            _loggerFactory!.CreateLogger("DebugCommands")
+            loggers.CreateLogger("DebugCommands")
         );
 #else
-        _ = new UpdateFlow(tray, _loggerFactory!.CreateLogger<UpdateFlow>()).RunAsync();
+        _ = new UpdateFlow(tray, loggers.CreateLogger<UpdateFlow>()).RunAsync();
 #endif
 
         // Last: commands may arrive from here on, so everything else must be ready.
@@ -132,7 +133,7 @@ public sealed partial class App : Application
         settings.Changed += current =>
         {
             hook.Enabled = current.Enabled;
-            overlay.ApplySettings(current.ShowOn, current.Layout);
+            overlay.ApplySettings(current);
             tray.SetEnabled(current.Enabled);
         };
 
@@ -155,7 +156,7 @@ public sealed partial class App : Application
         base.OnExit(e);
     }
 
-    private void StartLogging(bool useConsole = false)
+    private static ILoggerFactory StartLogging()
     {
         var config = new LoggerConfiguration()
 #if DEBUG
@@ -174,25 +175,16 @@ public sealed partial class App : Application
                 shared: false
             );
 
-        if (useConsole)
-        {
-            config.WriteTo.Console(
-                outputTemplate: "{Timestamp:HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
-            );
-        }
-
-        var serilog = config.CreateLogger();
-        _loggerFactory = new LoggerFactory().AddSerilog(serilog, dispose: true);
+        return new LoggerFactory().AddSerilog(config.CreateLogger(), dispose: true);
     }
 
     /// <summary>
     /// Builds the HWND now but never shows it for real, so later show/hide is fast.
     /// EnsureHandle creates the native window without displaying it.
     /// </summary>
-    private OverlayWindow CreateOverlay(Core.Configuration.Settings settings)
+    private static OverlayWindow CreateOverlay(Settings settings, ILoggerFactory loggers)
     {
-        var overlay = new OverlayWindow(_loggerFactory!.CreateLogger<OverlayWindow>());
-        overlay.ApplySettings(settings.ShowOn, settings.Layout);
+        var overlay = new OverlayWindow(settings, loggers.CreateLogger<OverlayWindow>());
         new WindowInteropHelper(overlay).EnsureHandle();
         overlay.WarmUp();
         return overlay;

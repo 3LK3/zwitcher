@@ -1,15 +1,19 @@
 using Microsoft.Extensions.Logging;
+using Velopack;
+using Velopack.Sources;
 using Zwitcher.App.Tray;
 
 namespace Zwitcher.App.Updates;
 
 /// <summary>
-/// Checks for an update once and offers it in the tray. Nothing is installed until the user
-/// clicks the offer.
+/// Checks GitHub releases for an update once and offers it in the tray. Nothing is installed
+/// until the user clicks the offer.
 /// </summary>
 public sealed class UpdateFlow(TrayIcon tray, ILogger<UpdateFlow> logger)
 {
-    private readonly AppUpdater _updater = new();
+    private readonly UpdateManager _manager = new(
+        new GithubSource(AppInfo.RepositoryUrl, null, false)
+    );
 
     /// <summary>
     /// Meant to be fire-and-forget, so that a slow network never delays the hook going live.
@@ -19,7 +23,8 @@ public sealed class UpdateFlow(TrayIcon tray, ILogger<UpdateFlow> logger)
     {
         try
         {
-            var update = await _updater.CheckAsync();
+            // Portable and dev builds have no Velopack install to update.
+            var update = _manager.IsInstalled ? await _manager.CheckForUpdatesAsync() : null;
 
             if (logger.IsEnabled(LogLevel.Debug))
             {
@@ -36,15 +41,16 @@ public sealed class UpdateFlow(TrayIcon tray, ILogger<UpdateFlow> logger)
 
             tray.UpdateRequested += async (_, _) =>
             {
-                tray.SetUpdateBusy("Downloading update...");
+                tray.SetUpdateState("Downloading update...", enabled: false);
                 try
                 {
-                    await _updater.DownloadAndApplyAsync(update);
+                    await _manager.DownloadUpdatesAsync(update);
+                    _manager.ApplyUpdatesAndRestart(update);
                 }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Update failed");
-                    tray.SetUpdateRetry("Update failed, retry");
+                    tray.SetUpdateState("Update failed, retry", enabled: true);
                 }
             };
             tray.SetUpdateAvailable(update.TargetFullRelease.Version.ToString());

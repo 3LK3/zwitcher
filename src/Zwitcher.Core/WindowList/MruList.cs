@@ -17,14 +17,11 @@ public sealed class MruList
         _order.Insert(0, window);
     }
 
+    /// <summary>
+    /// Ignores a window that isn't in the list: unknown windows sort last anyway, and hide
+    /// events also fire for menus and tooltips, which mustn't pile up here.
+    /// </summary>
     public void MoveToBack(nint window)
-    {
-        _order.Remove(window);
-        _order.Add(window);
-    }
-
-    /// <summary>Like <see cref="MoveToBack"/>, but ignores a window that isn't in the list.</summary>
-    public void MoveToBackIfKnown(nint window)
     {
         if (_order.Remove(window))
         {

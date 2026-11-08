@@ -18,7 +18,7 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(iconX, 1050), Monitor, work, Width, Height);
 
-        Assert.Equal((1920 - Width, 1032 - Height), position);
+        Assert.Equal(new PixelPoint(1920 - Width, 1032 - Height), position);
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(1000, 20), Monitor, work, Width, Height);
 
-        Assert.Equal((1920 - Width, 48), position);
+        Assert.Equal(new PixelPoint(1920 - Width, 48), position);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(30, 1000), Monitor, work, Width, Height);
 
-        Assert.Equal((60, 1080 - Height), position);
+        Assert.Equal(new PixelPoint(60, 1080 - Height), position);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(1890, 1000), Monitor, work, Width, Height);
 
-        Assert.Equal((1860 - Width, 1080 - Height), position);
+        Assert.Equal(new PixelPoint(1860 - Width, 1080 - Height), position);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class FlyoutPlacementTests
     {
         var position = FlyoutPlacement.Compute(new(30, 700), Monitor, Monitor, Width, Height);
 
-        Assert.Equal((0, 1080 - Height), position);
+        Assert.Equal(new PixelPoint(0, 1080 - Height), position);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class FlyoutPlacementTests
     {
         var position = FlyoutPlacement.Compute(new(1700, 1075), Monitor, Monitor, Width, Height);
 
-        Assert.Equal((1920 - Width, 1080 - Height), position);
+        Assert.Equal(new PixelPoint(1920 - Width, 1080 - Height), position);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(-500, 850), monitor, work, Width, Height);
 
-        Assert.Equal((-Width, 832 - Height), position);
+        Assert.Equal(new PixelPoint(-Width, 832 - Height), position);
     }
 
     [Fact]
@@ -86,6 +86,6 @@ public sealed class FlyoutPlacementTests
 
         var position = FlyoutPlacement.Compute(new(150, 220), monitor, work, Width, Height);
 
-        Assert.Equal((0, 0), position);
+        Assert.Equal(new PixelPoint(0, 0), position);
     }
 }

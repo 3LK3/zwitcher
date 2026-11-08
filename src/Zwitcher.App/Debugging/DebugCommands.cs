@@ -20,8 +20,8 @@ public static class DebugCommands
         ILogger logger
     )
     {
-        tray.PostTestCommandsRequested += (_, _) => PostTestCommands(poster, activeFlag);
-        tray.DumpWindowsRequested += (_, _) => DumpWindows(tracker, logger);
+        tray.AddMenuItem("Post test commands", () => PostTestCommands(poster, activeFlag));
+        tray.AddMenuItem("Dump windows", () => DumpWindows(tracker, logger));
     }
 
     /// <summary>`--crash-test=ui` or `--crash-test=pool` throws shortly after startup.</summary>

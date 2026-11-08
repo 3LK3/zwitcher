@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
-using Zwitcher.App.Settings;
+using Zwitcher.App.SettingsUi;
+using Zwitcher.Core.Screen;
 
 namespace Zwitcher.App.Tray;
 
@@ -13,28 +14,18 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _enabled;
     private readonly ToolStripMenuItem _update;
 
+    private int _addedItems;
+
     /// <summary>Where the icon was last clicked, in physical pixels. Kept for keyboard use.</summary>
     private Point _anchor = Cursor.Position;
 
     public TrayIcon()
     {
         _menu = new ContextMenuStrip();
-#if DEBUG
-        _menu.Items.Add(
-            "Post test commands",
-            null,
-            (_, _) => PostTestCommandsRequested?.Invoke(this, EventArgs.Empty)
-        );
-        _menu.Items.Add(
-            "Dump windows",
-            null,
-            (_, _) => DumpWindowsRequested?.Invoke(this, EventArgs.Empty)
-        );
-#endif
         _update = new ToolStripMenuItem("Update") { Visible = false };
         _update.Click += (_, _) => UpdateRequested?.Invoke(this, EventArgs.Empty);
         _menu.Items.Add(_update);
-        _enabled = new ToolStripMenuItem("Enabled") { Checked = true, CheckOnClick = true };
+        _enabled = new ToolStripMenuItem("Replace Alt+Tab") { Checked = true, CheckOnClick = true };
         _enabled.CheckedChanged += (_, _) => EnabledChanged?.Invoke(this, _enabled.Checked);
         _menu.Items.Add(_enabled);
         _menu.Items.Add("Settings", null, (_, _) => RequestSettings(SettingsPage.General, false));
@@ -68,12 +59,6 @@ public sealed class TrayIcon : IDisposable
         };
     }
 
-#if DEBUG
-    public event EventHandler? PostTestCommandsRequested;
-
-    public event EventHandler? DumpWindowsRequested;
-#endif
-
     public event EventHandler<bool>? EnabledChanged;
 
     public event EventHandler<SettingsRequest>? SettingsRequested;
@@ -98,17 +83,16 @@ public sealed class TrayIcon : IDisposable
         );
     }
 
-    public void SetUpdateBusy(string text)
+    /// <summary>Progress or failure of an update the user asked for.</summary>
+    public void SetUpdateState(string text, bool enabled)
     {
         _update.Text = text;
-        _update.Enabled = false;
+        _update.Enabled = enabled;
     }
 
-    public void SetUpdateRetry(string text)
-    {
-        _update.Text = text;
-        _update.Enabled = true;
-    }
+    /// <summary>Adds an item above the regular ones, e.g. for debug commands.</summary>
+    public void AddMenuItem(string text, Action onClick) =>
+        _menu.Items.Insert(_addedItems++, new ToolStripMenuItem(text, null, (_, _) => onClick()));
 
     public void Dispose()
     {
@@ -123,7 +107,7 @@ public sealed class TrayIcon : IDisposable
     private void RequestSettings(SettingsPage page, bool fromIconClick) =>
         SettingsRequested?.Invoke(
             this,
-            new SettingsRequest(page, _anchor.X, _anchor.Y, fromIconClick)
+            new SettingsRequest(page, new PixelPoint(_anchor.X, _anchor.Y), fromIconClick)
         );
 
     private static Icon LoadIcon()
