@@ -7,7 +7,8 @@
         <!-- uiAccess builds only start when signed and installed under Program Files, so they
              are opt-in: build/publish.ps1 passes -p:UiAccess=true only when it signs. -->
         <UiAccess Condition="'$(UiAccess)' == ''">false</UiAccess>
-        <ApplicationManifest Condition="'$(UiAccess)' == 'true'">app.uiaccess.manifest</ApplicationManifest>
+        <ApplicationManifest Condition="'$(UiAccess)' == 'true'"
+            >app.uiaccess.manifest</ApplicationManifest>
         <ApplicationManifest Condition="'$(UiAccess)' != 'true'">app.manifest</ApplicationManifest>
         <!-- WFO0003 prefers Application.SetHighDpiMode, which is for WinForms apps. This is a
              WPF app, so the manifest sets DPI awareness. -->
@@ -47,7 +48,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Assets\zwitcher.ico" LogicalName="Zwitcher.App.Assets.zwitcher.ico" />
+        <EmbeddedResource
+            Include="Assets\zwitcher.ico"
+            LogicalName="Zwitcher.App.Assets.zwitcher.ico"
+        />
     </ItemGroup>
 
     <ItemGroup>
