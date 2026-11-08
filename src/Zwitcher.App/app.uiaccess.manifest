@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+    <assemblyIdentity version="1.0.0.0" name="Zwitcher.App" />
+
+    <!-- Used only for signed release builds (UiAccess=true). Identical to app.manifest except
+         for uiAccess="true", which lets the keyboard hook see input while an elevated window
+         has focus (UIPI). Windows refuses to start a uiAccess exe unless it is Authenticode
+         signed with a trusted certificate and runs from a secure location such as Program Files.
+         https://learn.microsoft.com/windows/security/threat-protection/security-policy-settings/user-account-control-only-elevate-uiaccess-applications-that-are-installed-in-secure-locations -->
+    <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+        <security>
+            <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+                <requestedExecutionLevel level="asInvoker" uiAccess="true" />
+            </requestedPrivileges>
+        </security>
+    </trustInfo>
+
+    <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+        <application>
+            <!-- Windows 10 and Windows 11 -->
+            <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+        </application>
+    </compatibility>
+
+    <!-- https://learn.microsoft.com/windows/win32/hidpi/setting-the-default-dpi-awareness-for-a-process -->
+    <application xmlns="urn:schemas-microsoft-com:asm.v3">
+        <windowsSettings>
+            <!-- dpiAwareness wins on Windows 10 1607+; dpiAware is ignored there. -->
+            <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+            <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+        </windowsSettings>
+    </application>
+</assembly>

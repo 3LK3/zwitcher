@@ -272,6 +272,17 @@ shows a balloon and an *Update to x* menu item. Only a click downloads the updat
 `ApplyUpdatesAndRestart`; nothing is installed unasked. Not part of the controller or the
 hook.
 
+### Launcher (Zwitcher.Launcher)
+Signed builds of `Zwitcher.App.exe` have `uiAccess="true"` (see Known limitations). Windows
+refuses to `CreateProcess` a uiAccess exe from a normal process (`ERROR_ELEVATION_REQUIRED`);
+only `ShellExecute`, through the AppInfo service, works. Velopack's root stub, its shortcuts,
+the restart after an update and its install/update hooks all use `CreateProcess` on the main
+exe. So the main exe is `Zwitcher.exe`, a tiny launcher without uiAccess: it runs
+`VelopackApp.Build().Run()` for the hooks, starts `Zwitcher.App.exe` next to it with
+`UseShellExecute = true` (passing its arguments on), and exits. It has no UI and no other
+logic. The Run key points straight at `Zwitcher.App.exe`, since Explorer starts it through the
+shell anyway.
+
 ## State machine
 
 ```
@@ -358,6 +369,7 @@ process. Unobserved task exceptions are only logged.
 | `RollingFileTraceListener` | `Zwitcher.Core/Diagnostics` |
 | `Settings`, `ISettingsStore`, `JsonSettingsStore`, `SettingsService`, `StartupRegistration` | `Zwitcher.Core` |
 | `OverlayWindow` (implements `IOverlayView`), `SettingsWindow`, message window, tray | `Zwitcher.App` |
+| Launcher (Velopack's main exe, starts the app via ShellExecute) | `Zwitcher.Launcher` |
 
 ## Testing
 
@@ -372,18 +384,25 @@ process. Unobserved task exceptions are only logged.
 
 ## Known limitations
 
-- While an elevated window has focus, the hook doesn't receive input. Fixes are to
-  run elevated, or to use `uiAccess=true` (which requires a signed exe installed
-  under Program Files). Out of scope for now.
+- While an elevated window has focus, the hook doesn't receive input (UIPI). Signed
+  release builds work around this with `uiAccess="true"` (`app.uiaccess.manifest`):
+  Windows honours it only for an Authenticode-signed exe installed in a secure location,
+  which is why the MSI installs per machine under Program Files. Unsigned and Debug builds
+  use `app.manifest` (`uiAccess="false"`) and keep the limitation, because Windows refuses
+  to start an unsigned uiAccess exe. There is no workaround in code.
 - Win+Tab and Task View are untouched.
 
 ## Release
 
-`build/publish.ps1` publishes a self-contained, single-file `win-x64` `Zwitcher.exe`
+`build/publish.ps1` publishes a self-contained, single-file `win-x64` `Zwitcher.App.exe`
 (WPF's native DLLs included through `IncludeNativeLibrariesForSelfExtract`, no trimming,
-which WPF doesn't support) and packs it with `vpk pack` into `artifacts/release/win-x64` (full and delta `.nupkg`,
-`releases.win.json`, `RELEASES`, `assets.win.json`, `Setup.exe`, `Portable.zip`). The version lives only in
-`Directory.Build.props`. On a `v*` tag, the release workflow runs `build/release.ps1`, which
-fails unless the tag is `v<Version>`, downloads the previous release for delta packages, and
+which WPF doesn't support) and the trimmed, single-file launcher `Zwitcher.exe` into the same
+folder, and packs both with `vpk pack --mainExe Zwitcher.exe` into `artifacts/release` (full and delta `.nupkg`,
+`releases.win.json`, `RELEASES`, `assets.win.json`, `Setup.exe`, a per-machine `.msi`, `Portable.zip`). The version lives only in
+`Directory.Build.props`. When `SIGNING_PFX_PATH` and `SIGNING_PFX_PASSWORD` are set,
+publish.ps1 builds with `-p:UiAccess=true` and `vpk` signs the binaries; otherwise the build is
+unsigned and without uiAccess (CI, local). On a `v*` tag, the release workflow decodes the
+`SIGNING_PFX_BASE64` secret to a temp file and runs `build/release.ps1`, which fails unless the
+tag is `v<Version>` and signing is configured, downloads the previous release for delta packages, and
 creates the GitHub release with all those files and that version's CHANGELOG section. The
 in-app update check reads these files through `GithubSource`.

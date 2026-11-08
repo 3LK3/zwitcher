@@ -29,7 +29,13 @@ New-Item -ItemType Directory -Force $artifacts | Out-Null
 $notesFile = Join-Path $artifacts 'release-notes.md'
 Set-Content -Path $notesFile -Value $notes -Encoding utf8NoBOM
 
-$releaseDir = Join-Path $artifacts 'release/win-x64'
+# Releases must be signed: the uiAccess manifest only goes into signed builds.
+if (-not $env:SIGNING_PFX_PATH -or -not $env:SIGNING_PFX_PASSWORD) {
+    throw 'SIGNING_PFX_PATH and SIGNING_PFX_PASSWORD must be set for a release.'
+}
+
+# Must match $releaseOutput in publish.ps1, so vpk pack finds the previous release for deltas.
+$releaseDir = Join-Path $artifacts 'release'
 if (Test-Path $releaseDir) { Remove-Item $releaseDir -Recurse -Force }
 
 # Fetch the previous release so vpk pack can build a delta package. The first release has

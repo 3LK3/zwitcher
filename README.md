@@ -98,7 +98,9 @@ Built with .NET 10, WPF and [CsWin32](https://github.com/microsoft/CsWin32). The
 
 - Windows only.
 - While an **elevated (administrator) window** has focus, Windows does not deliver keyboard
-  input to the hook, so Alt+Tab falls back to the native switcher there.
+  input to the hook, so Alt+Tab falls back to the native switcher there. Signed releases
+  installed with the MSI (under Program Files) avoid this through `uiAccess`; unsigned and
+  self-built copies don't.
 - Win+Tab and Task View are untouched.
 - The exe is unsigned, so SmartScreen may warn on first start.
 - Releases are built for x64 only.

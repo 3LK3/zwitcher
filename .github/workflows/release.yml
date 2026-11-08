@@ -27,6 +27,18 @@ jobs:
       - run: dotnet build -warnaserror
       - run: dotnet test --no-build
 
+      # The code-signing PFX is stored base64-encoded in a secret. Written to the runner's temp
+      # dir (outside the workspace, so it can't end up in the release) and deleted at the end.
+      - name: Decode signing certificate
+        shell: pwsh
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        run: |
+          if (-not $env:SIGNING_PFX_BASE64) { throw 'The SIGNING_PFX_BASE64 secret is not set.' }
+          $path = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          "SIGNING_PFX_PATH=$path" >> $env:GITHUB_ENV
+
       # The tag goes through an environment variable, not straight into the script text.
       - run: ./build/release.ps1 -Tag $env:TAG
         shell: pwsh
@@ -34,11 +46,17 @@ jobs:
           TAG: ${{ github.ref_name }}
           # Lets release.ps1 download the previous release for delta packages.
           GH_TOKEN: ${{ github.token }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+
+      - name: Delete signing certificate
+        if: always()
+        shell: pwsh
+        run: if ($env:SIGNING_PFX_PATH) { Remove-Item $env:SIGNING_PFX_PATH -Force -ErrorAction SilentlyContinue }
 
       # Velopack's GithubSource needs everything vpk pack produced: the full (and delta)
-      # .nupkg, the releases.win.json / RELEASES feed files and the Setup.exe / Portable.zip.
-      # gh comes with the runner, so no third-party action is needed.
-      - run: gh release create $env:TAG (Get-ChildItem artifacts/release/win-x64 -File).FullName --title "Zwitcher $env:TAG" --notes-file artifacts/release-notes.md
+      # .nupkg, the releases.win.json / RELEASES feed files, the Setup.exe / .msi and the
+      # Portable.zip. gh comes with the runner, so no third-party action is needed.
+      - run: gh release create $env:TAG (Get-ChildItem artifacts/release -File).FullName --title "Zwitcher $env:TAG" --notes-file artifacts/release-notes.md
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}

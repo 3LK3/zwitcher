@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Velopack's main exe. It exists only because Zwitcher.App.exe has uiAccess="true" in
+         signed builds, and Windows refuses to CreateProcess a uiAccess exe from a normal process
+         (ERROR_ELEVATION_REQUIRED). Velopack's stub, shortcuts and update restart all use
+         CreateProcess, so they start this exe, which starts the app through ShellExecute.
+         See docs/ARCHITECTURE.md, "Launcher". -->
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <AssemblyName>Zwitcher</AssemblyName>
+        <AssemblyTitle>Zwitcher</AssemblyTitle>
+        <Product>Zwitcher</Product>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <ApplicationIcon>..\Zwitcher.App\Assets\zwitcher.ico</ApplicationIcon>
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Velopack" Version="1.2.161" />
+    </ItemGroup>
+</Project>

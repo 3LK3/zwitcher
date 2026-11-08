@@ -297,6 +297,9 @@ public sealed partial class App : Application
     [STAThread]
     private static void Main(string[] args)
     {
+        // Velopack sends its install/update hooks to Zwitcher.Launcher, the main exe. This call
+        // stays because the app is also started directly (Run key, dev): it applies an update
+        // that was downloaded but not installed yet (SetAutoApplyOnStartup is on by default).
         VelopackApp.Build().Run();
 
         App app = new();
