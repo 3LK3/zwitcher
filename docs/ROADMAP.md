@@ -259,4 +259,4 @@ The architecture already leaves room for these. Most are view or tracker changes
 the controller and the hook stay untouched.
 
 - ~~**Installer** and **auto-update** via Velopack~~ (v1.0.1)
-- proper logging and error handling
+- ~~proper logging~~ (v1.0.2)

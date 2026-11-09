@@ -4,12 +4,13 @@ All notable changes to Zwitcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.2] - 2026-11-09
 
 ### Changed
 
 - Logging uses Serilog. The log rolls over at 1 MB and keeps up to 5 files, and errors are
   logged with their full exception.
+- Improved window ordering
 
 ## [1.0.1] - 2026-11-08
 
